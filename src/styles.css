@@ -345,3 +345,11 @@ body{background:#0b1420;color:#e8eef4}
 .overview-possession-row small{font-size:9px;color:#8fa5b6;overflow-wrap:anywhere}
 .overview-possession-empty{margin:0;padding:12px;color:#9bb0bf;font-size:11px}
 @media(max-width:560px){.overview-possession-list{padding:11px}.overview-possession-list-heading h2{font-size:12px}.overview-possession-row{align-items:flex-start;flex-wrap:wrap;padding:10px}.overview-possession-row>span:first-child{flex-basis:calc(100% - 8px)}}
+
+/* Live current-date indicator on the possession calendar */
+.calendar-today-live{display:flex;align-items:center;gap:7px;margin-top:8px!important;color:#c5d5e1!important;font-size:12px!important}
+.calendar-today-live .online-dot{flex:0 0 7px;width:7px;height:7px}
+.calendar-today-live strong{color:#fff;font-weight:700}
+.calendar-day-today{outline:2px solid #e0a33b;outline-offset:-2px;background:rgba(224,163,59,.09)}
+.calendar-day-today .calendar-day-number{color:#ffd27c;font-weight:800}
+.calendar-today-tag{display:inline-block;margin-left:5px;padding:2px 4px;border-radius:4px;background:#e0a33b;color:#17212b;font-size:8px;font-weight:900;vertical-align:middle}
