@@ -265,76 +265,109 @@ export default function App() {
       setToast("Enter a work-site name before saving.");
       return;
     }
-    if (startChains !== "" && (Number(startChains) < 0 || Number(startChains) > 79) ||
-        endChains !== "" && (Number(endChains) < 0 || Number(endChains) > 79)) {
-      setToast("Chains must be between 0 and 79.");
-      return;
+    const chainFields = [
+      ["Start", startChains], ["End", endChains],
+      ...tasks.filter(task => !task.demo).map(task => [task.id, task.mileageChains])
+    ];
+    for (const [label, value] of chainFields) {
+      if (value !== "" && value != null && (!Number.isInteger(Number(value)) || Number(value) < 0 || Number(value) > 79)) {
+        setToast(`${label}: chains must be a whole number from 0 to 79.`);
+        return;
+      }
     }
     if (startMiles !== "" && endMiles !== "" && startChains !== "" && endChains !== "" &&
         Number(endMiles) * 80 + Number(endChains) < Number(startMiles) * 80 + Number(startChains)) {
       setToast("The end mileage must not be before the start mileage.");
       return;
     }
+
     setSiteSaving(true);
-    const payload = {
-      name: workSiteName.trim(),
-      reference: workRef.trim() || null,
-      company_id: membership.company_id,
-      boundary: workSite || [],
-      elr: elr.trim().toUpperCase() || null,
-      route_reference: routeReference.trim() || null,
-      start_miles: startMiles === "" ? null : Number(startMiles),
-      start_chains: startChains === "" ? null : Number(startChains),
-      end_miles: endMiles === "" ? null : Number(endMiles),
-      end_chains: endChains === "" ? null : Number(endChains),
-      updated_at: new Date().toISOString()
-    };
-    const request = worksiteId
-      ? supabase.from("worksites").update(payload).eq("id", worksiteId).eq("company_id", membership.company_id).select("id").single()
-      : supabase.from("worksites").insert(payload).select("id").single();
-    const { data, error } = await request;
-    if (error) {
-      setSiteSaving(false);
-      setToast("Work site was not saved: " + error.message);
-      return;
-    }
-    const savedWorksiteId = data.id;
-    setWorksiteId(savedWorksiteId);
-    const boardTasks = tasks.filter(task => !task.demo);
-    for (const task of boardTasks) {
-      const chainValue = task.mileageChains === "" || task.mileageChains == null ? null : Number(task.mileageChains);
-      const milesValue = task.mileageMiles === "" || task.mileageMiles == null ? null : Number(task.mileageMiles);
-      if (chainValue !== null && (!Number.isInteger(chainValue) || chainValue < 0 || chainValue > 79)) {
-        setSiteSaving(false);
-        setToast(`${task.id}: chains must be a whole number from 0 to 79.`);
-        return;
-      }
-      const boardPayload = {
-        worksite_id: savedWorksiteId,
-        board_code: task.id,
-        label: task.label,
-        latitude: Number(task.position[0]),
-        longitude: Number(task.position[1]),
-        status: task.status === "Verified" ? "verified" : task.status === "Unassigned" ? "planned" : "placed",
-        elr: (task.elr || elr).trim().toUpperCase() || null,
-        route_reference: (task.routeReference || routeReference).trim() || null,
-        mileage_miles: milesValue,
-        mileage_chains: chainValue
+    try {
+      const payload = {
+        name: workSiteName.trim(),
+        reference: workRef.trim() || null,
+        company_id: membership.company_id,
+        boundary: workSite || [],
+        elr: elr.trim().toUpperCase() || null,
+        route_reference: routeReference.trim() || null,
+        start_miles: startMiles === "" ? null : Number(startMiles),
+        start_chains: startChains === "" ? null : Number(startChains),
+        end_miles: endMiles === "" ? null : Number(endMiles),
+        end_chains: endChains === "" ? null : Number(endChains),
+        updated_at: new Date().toISOString()
       };
-      const boardRequest = task.dbId
-        ? supabase.from("marker_boards").update(boardPayload).eq("id", task.dbId).select("id").single()
-        : supabase.from("marker_boards").insert(boardPayload).select("id").single();
-      const { data: boardData, error: boardError } = await boardRequest;
-      if (boardError) {
-        setSiteSaving(false);
-        setToast(`Work site saved, but ${task.id} could not be saved: ${boardError.message}`);
+      const request = worksiteId
+        ? supabase.from("worksites").update(payload).eq("id", worksiteId).eq("company_id", membership.company_id).select("id").single()
+        : supabase.from("worksites").insert(payload).select("id").single();
+      const { data, error } = await request;
+      if (error) {
+        setToast("Work site was not saved: " + error.message);
         return;
       }
-      if (!task.dbId) updateTask(task.id, { dbId: boardData.id, demo: false });
+      const savedWorksiteId = data.id;
+      setWorksiteId(savedWorksiteId);
+
+      const boardTasks = tasks.filter(task => !task.demo);
+      let savedBoardCount = 0;
+      for (const task of boardTasks) {
+        const boardPayload = {
+          worksite_id: savedWorksiteId,
+          board_code: task.id,
+          label: task.label,
+          latitude: Number(task.position[0]),
+          longitude: Number(task.position[1]),
+          status: task.status === "Verified" ? "verified" : task.status === "Unassigned" ? "planned" : "placed",
+          elr: (task.elr || elr).trim().toUpperCase() || null,
+          route_reference: (task.routeReference || routeReference).trim() || null,
+          mileage_miles: task.mileageMiles === "" || task.mileageMiles == null ? null : Number(task.mileageMiles),
+          mileage_chains: task.mileageChains === "" || task.mileageChains == null ? null : Number(task.mileageChains)
+        };
+        const boardRequest = task.dbId
+          ? supabase.from("marker_boards").update(boardPayload).eq("id", task.dbId).select("id").single()
+          : supabase.from("marker_boards").insert(boardPayload).select("id").single();
+        const { data: boardData, error: boardError } = await boardRequest;
+        if (boardError) {
+          setToast(`Work site saved, but marker board ${task.id} was not saved: ${boardError.message}`);
+          return;
+        }
+        savedBoardCount += 1;
+        if (!task.dbId) updateTask(task.id, { dbId: boardData.id, demo: false });
+      }
+      setToast(boardTasks.length
+        ? `Work site saved; ${savedBoardCount} marker board(s) saved too.`
+        : "Work-site details saved to RailSite.");
+      window.setTimeout(() => setToast(""), 4500);
+    } catch (err) {
+      setToast("Save failed unexpectedly: " + (err?.message || "Please try again."));
+    } finally {
+      setSiteSaving(false);
     }
-    setSiteSaving(false);
-    setToast(boardTasks.length ? "Work site and marker-board mileage saved to RailSite." : "Work-site details saved to RailSite.");
-    window.setTimeout(() => setToast(""), 4000);
+  };
+
+  const deleteSelectedBoard = async () => {
+    if (!selected) return;
+    const boardName = selected.label || selected.id;
+    if (!window.confirm(`Delete ${boardName}? This cannot be undone.`)) return;
+    if (selected.dbId && supabase) {
+      const { error } = await supabase
+        .from("marker_boards")
+        .delete()
+        .eq("id", selected.dbId);
+      if (error) {
+        setToast("Could not delete marker board: " + error.message);
+        return;
+      }
+    }
+    const remaining = tasks.filter(task => task.id !== selected.id);
+    setTasks(remaining);
+    setSelectedId(remaining[0]?.id || "");
+    setPhotoPreviews(prev => {
+      const next = { ...prev };
+      delete next[selected.id];
+      return next;
+    });
+    setToast(`${boardName} deleted.`);
+    window.setTimeout(() => setToast(""), 3500);
   };
 
   useEffect(() => {
@@ -584,6 +617,7 @@ export default function App() {
             <button className="btn btn-secondary" onClick={() => { updateTask(selected.id, { status: "Awaiting PICOP verification" }); setToast("Task moved to awaiting verification."); window.setTimeout(() => setToast(""), 3000); }}>Request review</button>
             <button className="btn btn-primary" onClick={() => { updateTask(selected.id, { status: "Verified" }); setToast("Marked verified in this demo only."); window.setTimeout(() => setToast(""), 3000); }}>Verify task</button>
           </div>
+          <button className="btn btn-danger btn-full delete-board-button" onClick={deleteSelectedBoard} disabled={!selected}>Delete selected marker board</button>
           <p className="safety-note"><strong>Safety note:</strong> This prototype does not confirm railway protection, safe access, or correct placement. Use approved railway procedures and independent checks.</p>
         </div>
         <div className="panel-bottom-note"><span className="lock-icon">▣</span> Demo data only · Changes are not saved between reloads</div>
