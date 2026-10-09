@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polygon, LayersControl, useMap 
 import L from "leaflet";
 import "leaflet-draw";
 import "leaflet-draw/dist/leaflet.draw.css";
+import LineBlockages from "./LineBlockages.jsx";
 
 // Demo records only. Replace with authenticated Supabase records before operational use.
 const initialTasks = [
@@ -1130,6 +1131,7 @@ export default function App() {
         {["owner", "admin"].includes(membership.role) && <button className={`sidebar-link ${activePage === "map" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("map")}><span className="sidebar-icon">⌖</span><span className="sidebar-label">Worksites &amp; map</span></button>}
         {membership.role !== "planner" && membership.role !== "picop" && <button className={`sidebar-link ${activePage === "boards" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("boards")}><span className="sidebar-icon">⚑</span><span className="sidebar-label">Marker boards &amp; tasks</span></button>}{membership.role === "member" && <button className={`sidebar-link ${activePage === "boards" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("boards")}><span className="sidebar-icon">⚑</span><span className="sidebar-label">My board tasks</span></button>}
         {["owner", "admin"].includes(membership.role) && <button className={`sidebar-link ${activePage === "profiles" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("profiles")}><span className="sidebar-icon">♙</span><span className="sidebar-label">Manage profiles</span></button>}
+        <button className={`sidebar-link ${activePage === "line-blockages" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("line-blockages")}><span className="sidebar-icon">▣</span><span className="sidebar-label">Line blockages</span></button>
         <div className="sidebar-spacer"></div><div className="sidebar-footer"><span className="online-dot"/><span className="sidebar-label">Company workspace</span></div>
       </aside>
       <main className="workspace">
@@ -1418,6 +1420,7 @@ export default function App() {
         </div>
         <div className="panel-bottom-note"><span className="lock-icon">▣</span> Demo data only · Changes are not saved between reloads</div>
       </aside>}
+      {activePage === "line-blockages" && <LineBlockages membership={membership} session={session} />}
       {activePage === "profiles" && ["owner", "admin"].includes(membership.role) && <section className="profiles-page">
         <div className="dashboard-heading"><div><div className="eyebrow">COMPANY ACCESS</div><h1>Manage profiles</h1><p>Create accounts with employee and Sentinel details. Users must replace their temporary password at first sign-in.</p></div><div className="dashboard-live"><span className="online-dot"/><span>{companyProfiles.length} PROFILES</span></div></div>
         <div className="profiles-layout">
