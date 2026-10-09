@@ -279,3 +279,23 @@ body{background:#0b1420;color:#e8eef4}
 .profile-security-note strong{color:#e4edf3}
 @media(max-width:900px){.profiles-layout{grid-template-columns:1fr}.profile-create-card,.profile-list-card{padding:15px}}
 @media(max-width:480px){.profile-row{gap:8px;padding:8px}.profile-avatar{width:30px;height:30px;flex-basis:30px}.profile-role-badge{font-size:7px;padding:4px 5px}.profile-row-main strong{font-size:10px}}
+
+
+/* Persistent in-app notifications and PICOP calendar actions */
+.notification-center{width:100%;max-width:1500px;margin:0 auto 16px;padding:12px 14px;background:#152839;border:1px solid #3b556a;border-radius:10px;color:#e8eef4}
+.notification-center-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.notification-center-heading strong{font:800 12px Manrope,sans-serif;color:#f1f5f9}
+.notification-center-heading span{font-size:9px;color:#e8bd6c}
+.notification-row{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-top:1px solid #2b4356}
+.notification-mark{display:grid;place-items:center;flex:0 0 23px;width:23px;height:23px;border-radius:7px;background:#392f20;color:#f0c16a;font-size:12px;font-weight:900}
+.notification-row p{flex:1;margin:0;font-size:10px;line-height:1.5;color:#d5e1e9;overflow-wrap:anywhere}
+.notification-row p small{display:block;margin-top:4px;color:#829bad;font-size:8px}
+.notification-row>button{border:1px solid #3a5265;border-radius:5px;background:#102131;color:#b6c8d5;padding:2px 7px;font-size:16px;line-height:1.2}
+.calendar-event-wrap{display:flex;flex-direction:column;gap:4px;min-width:0}
+.picop-event-actions{display:flex;gap:4px;flex-wrap:wrap}
+.picop-event-actions button{flex:1;min-width:0;border:1px solid #3d6a59;border-radius:5px;background:#17372f;color:#b7f0d9;padding:5px 4px;font-size:8px;font-weight:800;cursor:pointer}
+.picop-event-actions button+button{border-color:#75434a;background:#382328;color:#ffc0c4}
+.picop-event-actions .request-boards-button{flex-basis:100%;border-color:#735c36;background:#342c1e;color:#f1d18e}
+.picop-event-actions button:disabled{opacity:.55;cursor:wait}
+.picop-event-note{padding:5px 6px;border:1px solid #735c36;border-radius:5px;background:#342c1e;color:#f1d18e;font-size:8px;font-weight:700}
+.calendar-event-wrap .calendar-event{width:100%}
