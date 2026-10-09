@@ -261,7 +261,7 @@ export default function App() {
           setPossessionStatus(first.possession_status || first.status || "Planning");
           setPlannedStartAt(first.planned_start_at ? toLocalDateTime(first.planned_start_at) : "");
           setPlannedEndAt(first.planned_end_at ? toLocalDateTime(first.planned_end_at) : "");
-          setSelectedCalendarDate(first.planned_start_at ? first.planned_start_at.slice(0, 10) : "");
+          setSelectedCalendarDate(first.planned_start_at ? toLocalDateTime(first.planned_start_at).slice(0, 10) : "");
         } else {
           setWorksiteId(null);
           setWorkSiteName("");
@@ -492,10 +492,12 @@ export default function App() {
     setPossessionStatus(row.possession_status || row.status || "Planning");
     setPlannedStartAt(row.planned_start_at ? toLocalDateTime(row.planned_start_at) : "");
     setPlannedEndAt(row.planned_end_at ? toLocalDateTime(row.planned_end_at) : "");
-    setSelectedCalendarDate(row.planned_start_at ? row.planned_start_at.slice(0, 10) : "");
-    setTasks([]);
-    setSelectedId("");
-    setPhotoPreviews({});
+    setSelectedCalendarDate(row.planned_start_at ? toLocalDateTime(row.planned_start_at).slice(0, 10) : "");
+    if (worksiteId !== row.id) {
+      setTasks([]);
+      setSelectedId("");
+      setPhotoPreviews({});
+    }
     setToast("Possession loaded. Changes will be saved to this calendar entry.");
     window.setTimeout(() => setToast(""), 3500);
   };
