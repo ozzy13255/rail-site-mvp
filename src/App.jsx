@@ -260,7 +260,7 @@ export default function App() {
         setAuthError("Your account is not assigned to a RailSite company yet. Ask the owner to add you.");
       } else {
         setMembership(data);
-        setActivePage(data.role === "member" ? "boards" : "overview");
+        setActivePage(data.role === "member" ? "boards" : data.role === "planner" ? "calendar" : "overview");
         setAuthError("");
       }
       setAuthLoading(false);
@@ -298,7 +298,7 @@ export default function App() {
       .select("company_id, role, companies(name)").eq("user_id", refreshedSession.session.user.id).maybeSingle();
     if (memberError || !member) throw new Error("Password changed, but company access could not be loaded. Contact the RailSite owner.");
     setMembership(member);
-    setActivePage(member.role === "member" ? "boards" : "overview");
+    setActivePage(member.role === "member" ? "boards" : member.role === "planner" ? "calendar" : "overview");
   };
 
   const handleResetPassword = async (email) => {
@@ -990,8 +990,9 @@ export default function App() {
       <aside className="app-sidebar" aria-label="Main navigation">
         <button className="sidebar-toggle" type="button" onClick={() => setSidebarCollapsed(v => !v)} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}><span>{sidebarCollapsed ? "☰" : "‹"}</span><span className="sidebar-label">{sidebarCollapsed ? "" : "Collapse menu"}</span></button>
         <div className="sidebar-section-label">WORKSPACE</div>
-        {membership.role !== "member" && <button className={`sidebar-link ${activePage === "overview" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("overview")}><span className="sidebar-icon">▦</span><span className="sidebar-label">{membership.role === "planner" ? "Planning overview" : membership.role === "picop" ? "PICOP overview" : "Overview"}</span></button>}
-        {membership.role !== "member" && <button className={`sidebar-link ${activePage === "calendar" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("calendar")}><span className="sidebar-icon">▦</span><span className="sidebar-label">Possession calendar</span></button>}
+        {membership.role === "planner" && <button className={`sidebar-link ${["overview","calendar"].includes(activePage) ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("calendar")}><span className="sidebar-icon">▦</span><span className="sidebar-label">Planning &amp; Calendar</span></button>}
+        {membership.role !== "member" && membership.role !== "planner" && <button className={`sidebar-link ${activePage === "overview" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("overview")}><span className="sidebar-icon">▦</span><span className="sidebar-label">{membership.role === "picop" ? "PICOP overview" : "Overview"}</span></button>}
+        {membership.role !== "member" && membership.role !== "planner" && <button className={`sidebar-link ${activePage === "calendar" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("calendar")}><span className="sidebar-icon">▦</span><span className="sidebar-label">Possession calendar</span></button>}
         {["owner", "admin"].includes(membership.role) && <button className={`sidebar-link ${activePage === "map" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("map")}><span className="sidebar-icon">⌖</span><span className="sidebar-label">Worksites &amp; map</span></button>}
         {membership.role !== "planner" && <button className={`sidebar-link ${activePage === "boards" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("boards")}><span className="sidebar-icon">⚑</span><span className="sidebar-label">{membership.role === "member" ? "My board tasks" : "Marker boards &amp; tasks"}</span></button>}
         {["owner", "admin"].includes(membership.role) && <button className={`sidebar-link ${activePage === "profiles" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("profiles")}><span className="sidebar-icon">♙</span><span className="sidebar-label">Manage profiles</span></button>}
@@ -999,7 +1000,7 @@ export default function App() {
       </aside>
       <main className="workspace">
       {notifications.length > 0 && <section className="notification-center" aria-label="Notifications"><div className="notification-center-heading"><strong>Notifications</strong><span>{notifications.length} unread</span></div>{notifications.map(note => <div className="notification-row" key={note.id}><span className="notification-mark">!</span><p>{note.message}<small>{new Date(note.created_at).toLocaleString("en-GB")}</small></p><button type="button" onClick={() => markNotificationRead(note.id)} aria-label="Mark notification as read">×</button></div>)}</section>}
-      {activePage === "calendar" && <>
+      {(activePage === "calendar" || (membership.role === "planner" && activePage === "overview")) && <>
       {["owner", "admin", "planner"].includes(membership.role) && null}
       <section className="planning-calendar" id="calendar-screen">
         <div className="calendar-heading">
@@ -1094,7 +1095,7 @@ export default function App() {
         </section>
       </div>}
       </>}
-      {membership.role !== "member" && activePage === "overview" && <section className="dashboard-overview" id="overview-screen">
+      {membership.role !== "member" && (activePage === "overview" || (membership.role === "planner" && activePage === "calendar")) && <section className="dashboard-overview" id="overview-screen">
         <div className="dashboard-heading">
           <div><div className="eyebrow">OPERATIONS CONTROL</div><h1>{membership.role === "planner" ? "Planning overview" : "PICOP dashboard"}</h1><p>{membership.role === "planner" ? "Plan possessions, manage the calendar and track PICOP responses." : "Work-site status, marker-board progress and railway location reference."}</p></div>
           <div className="dashboard-live"><span className="online-dot"/><span>SESSION ACTIVE</span><small>{membership.companies?.name || "Company workspace"}</small></div>
