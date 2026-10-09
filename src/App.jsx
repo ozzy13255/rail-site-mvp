@@ -1037,7 +1037,7 @@ export default function App() {
           </div>
           <div className="toolbar-actions">
             <button className={`btn ${placingPin ? "btn-warning" : "btn-secondary"}`} onClick={() => setPlacingPin(v => !v)}>{placingPin ? "Tap map to place pin" : "+ Place board pin"}</button>
-            <button className="btn btn-primary" onClick={saveWorksite} disabled={siteSaving || siteLoading}>{siteSaving ? "Saving…" : "Save work site"}</button>
+            <button className="btn btn-primary" onClick={saveWorksite} disabled={!worksiteId || siteSaving || siteLoading}>{siteSaving ? "Saving…" : "Save work site changes"}</button>
           </div>
         </div>
         <section className="rail-mileage-panel">
