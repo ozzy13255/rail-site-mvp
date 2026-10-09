@@ -576,6 +576,7 @@ export default function App() {
           {visibleTasks.length === 0 && <div className="empty-state">No tasks match this filter.</div>}
         </div>
         <div className="detail-card">
+          {tasks.length === 0 ? <div className="empty-board-detail"><div className="eyebrow">NO MARKER BOARDS</div><h2>All marker boards have been deleted</h2><p>The work site is still here. Add a new board by selecting <strong>+ Place board pin</strong>, then tapping its location on the map.</p><button className="btn btn-primary btn-full" onClick={() => setPlacingPin(true)}>+ Add first marker board</button></div> : <>
           <div className="detail-topline"><span className="eyebrow">SELECTED TASK</span><span className={`status-pill ${statusClass(selected.status)}`}>{selected.status}</span></div>
           <h2>{selected.label}</h2>
           <div className="field">
@@ -621,6 +622,7 @@ export default function App() {
           </div>
           <button className="btn btn-danger btn-full delete-board-button" onClick={deleteSelectedBoard} disabled={!selected.id}>Delete selected marker board</button>
           <p className="safety-note"><strong>Safety note:</strong> This prototype does not confirm railway protection, safe access, or correct placement. Use approved railway procedures and independent checks.</p>
+          </>}
         </div>
         <div className="panel-bottom-note"><span className="lock-icon">▣</span> Demo data only · Changes are not saved between reloads</div>
       </aside>
