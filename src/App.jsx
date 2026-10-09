@@ -1100,43 +1100,43 @@ export default function App() {
           {tasks.length === 0 ? <div className="empty-board-detail"><div className="eyebrow">NO MARKER BOARDS</div><h2>All marker boards have been deleted</h2><p>The work site is still here. Add a new board by selecting <strong>+ Place board pin</strong>, then tapping its location on the map.</p><button className="btn btn-primary btn-full" onClick={() => setPlacingPin(true)}>+ Add first marker board</button></div> : <>
           <div className="detail-topline"><span className="eyebrow">SELECTED TASK</span><span className={`status-pill ${statusClass(selected.status)}`}>{selected.status}</span></div>
           <h2>{selected.label}</h2>
-          <div className="field">
+          {membership.role !== "member" && <div className="field">
             <label htmlFor="assignee">Assign team member</label>
             <select id="assignee" value={selected.assignedEmail || ""} disabled={membership.role === "picop" && workflowBusyId === selected.id} onChange={e => membership.role === "picop" ? assignSelectedBoard(e.target.value) : updateTask(selected.id, { assignedEmail: e.target.value, assignee: teamOptions.find(item => item.email === e.target.value)?.display_name || e.target.value || "Unassigned", status: e.target.value ? "Assigned" : "Unassigned" })}>
               <option value="">Unassigned</option>{teamOptions.map(profile => <option key={profile.user_id} value={profile.email}>{profile.display_name ? profile.display_name + " — " : ""}{profile.email}</option>)}
             </select>
-          </div>
+          </div>}
           <div className="marker-mileage-card">
             <div className="eyebrow">BOARD LOCATION REFERENCE</div>
             <div className="marker-reference-fields">
-              <label>ELR<input value={selected.elr || ""} onChange={e => updateTask(selected.id, { elr: e.target.value.toUpperCase() })} placeholder="ELR"/></label>
-              <label>Route / line<input value={selected.routeReference || ""} onChange={e => updateTask(selected.id, { routeReference: e.target.value })} placeholder="Route or line"/></label>
+              <label>ELR<input disabled={["member","picop"].includes(membership.role)} value={selected.elr || ""} onChange={e => updateTask(selected.id, { elr: e.target.value.toUpperCase() })} placeholder="ELR"/></label>
+              <label>Route / line<input disabled={["member","picop"].includes(membership.role)} value={selected.routeReference || ""} onChange={e => updateTask(selected.id, { routeReference: e.target.value })} placeholder="Route or line"/></label>
             </div>
             <div className="marker-chain-fields">
-              <label>Miles<input type="number" min="0" step="1" value={selected.mileageMiles ?? ""} onChange={e => updateTask(selected.id, { mileageMiles: e.target.value })} placeholder="0"/></label>
-              <label>Chains (0–79)<input type="number" min="0" max="79" step="1" value={selected.mileageChains ?? ""} onChange={e => updateTask(selected.id, { mileageChains: e.target.value })} placeholder="00"/></label>
+              <label>Miles<input disabled={["member","picop"].includes(membership.role)} type="number" min="0" step="1" value={selected.mileageMiles ?? ""} onChange={e => updateTask(selected.id, { mileageMiles: e.target.value })} placeholder="0"/></label>
+              <label>Chains (0–79)<input disabled={["member","picop"].includes(membership.role)} type="number" min="0" max="79" step="1" value={selected.mileageChains ?? ""} onChange={e => updateTask(selected.id, { mileageChains: e.target.value })} placeholder="00"/></label>
             </div>
             <small>Board mileage is saved with the work site. The map pin remains a manually placed visual reference until an approved railway geometry dataset is connected.</small>
           </div>
           <div className="field">
             <label htmlFor="notes">Instructions</label>
-            <textarea id="notes" rows="2" value={selected.notes || ""} onChange={e => updateTask(selected.id, { notes: e.target.value })} placeholder="Add task instructions…"/>
+            <textarea id="notes" rows="2" disabled={["member","picop"].includes(membership.role)} value={selected.notes || ""} onChange={e => updateTask(selected.id, { notes: e.target.value })} placeholder="Add task instructions…"/>
           </div>
           <div className="coord-box">
             <div><span>Map latitude</span><strong>{selected.position[0].toFixed(6)}</strong></div>
             <div><span>Map longitude</span><strong>{selected.position[1].toFixed(6)}</strong></div>
           </div>
-          <button className="btn btn-secondary btn-full" onClick={requestGps}>◎ Get my current GPS location</button>
+          {membership.role === "member" && <button className="btn btn-secondary btn-full" onClick={requestGps}>◎ Get my current GPS location</button>}
           {gpsError && <div className="inline-error">{gpsError}</div>}
           {gps && <div className="gps-confirm"><span className="online-dot"/> Location acquired · ±{gps.accuracy} m</div>}
-          <div className="field photo-field">
+          {membership.role === "member" && <div className="field photo-field">
             <label htmlFor="photo">Photo evidence</label>
             <label className="upload-zone" htmlFor="photo">
               {photoPreviews[selected.id] ? <img src={photoPreviews[selected.id]} alt="Selected task evidence preview"/> : <><span className="upload-icon">↑</span><strong>Choose a photo</strong><small>Use your phone camera or select an image</small></>}
             </label>
             <input id="photo" className="file-input" type="file" accept="image/*" capture="environment" onChange={onPhoto}/>
             {selected.photoName && <div className="file-caption">Attached: {selected.photoName}</div>}
-          </div>
+          </div>}
           {selected.photoUrl && <div className="board-evidence-card"><strong>Submitted placement evidence</strong>{photoPreviews[selected.id] ? <img src={photoPreviews[selected.id]} alt="Marker board placement evidence"/> : <button type="button" className="btn btn-secondary btn-full" onClick={async () => { const { data, error } = await supabase.storage.from("railsite-board-evidence").createSignedUrl(selected.photoUrl, 3600); if (error) setToast("Could not open evidence photo: " + error.message); else window.open(data.signedUrl, "_blank", "noopener,noreferrer"); }}>View submitted photo</button>}<small>Submitted {selected.submittedAt ? new Date(selected.submittedAt).toLocaleString("en-GB") : "time unavailable"} · GPS ±{selected.submittedGpsAccuracy ?? "?"} m</small><small>{selected.submittedLatitude != null ? `GPS: ${Number(selected.submittedLatitude).toFixed(6)}, ${Number(selected.submittedLongitude).toFixed(6)}` : "GPS evidence unavailable"}</small></div>}
           {membership.role === "member" && <div className="operative-confirm-panel"><strong>Placement confirmation</strong><p>{selected.placementRequestedAt ? "The PICOP has requested this board. Photograph it in place, acquire GPS, then confirm." : "Waiting for the PICOP to request board placement. You cannot confirm placement before that request."}</p>{selected.verificationNotes && <div className="inline-error">PICOP feedback: {selected.verificationNotes}</div>}{selected.placementRequestedAt && selected.status !== "Verified" && <button className="btn btn-primary btn-full" onClick={confirmBoardPlaced} disabled={workflowBusyId === selected.id || !photoFiles[selected.id] || !gps}>{workflowBusyId === selected.id ? "Submitting evidence…" : "Confirm board placed with photo + GPS"}</button>}</div>}
           {membership.role === "picop" && selected.status === "Awaiting PICOP verification" && <div className="operative-confirm-panel"><strong>PICOP verification</strong><label className="verification-notes-label">Notes for the operative<textarea rows="2" value={selected.verificationNotes || ""} onChange={e => updateTask(selected.id, { verificationNotes: e.target.value })} placeholder="Required if returning for correction"/></label><div className="button-row"><button className="btn btn-danger" onClick={() => verifySelectedBoard(false)} disabled={workflowBusyId === selected.id || !(selected.verificationNotes || "").trim()}>Return for correction</button><button className="btn btn-primary" onClick={() => verifySelectedBoard(true)} disabled={workflowBusyId === selected.id}>Verify evidence</button></div></div>}
