@@ -483,6 +483,18 @@ export default function App() {
     </header>
 
     <main className="workspace">
+      <section className="dashboard-overview">
+        <div className="dashboard-heading">
+          <div><div className="eyebrow">OPERATIONS CONTROL</div><h1>PICOP dashboard</h1><p>Work-site status, marker-board progress and railway location reference.</p></div>
+          <div className="dashboard-live"><span className="online-dot"/><span>SESSION ACTIVE</span><small>{membership.companies?.name || "Company workspace"}</small></div>
+        </div>
+        <div className="overview-cards">
+          <article className="overview-card overview-card-site"><div className="overview-card-top"><span className="overview-icon">⌖</span><span className="overview-label">ACTIVE WORK SITE</span></div><strong className="overview-main-value">{workSiteName || "Unnamed work site"}</strong><div className="overview-card-foot">{workRef || "No work-site reference"} <span className="overview-status-dot"/> {worksiteId ? "SAVED" : "DRAFT"}</div></article>
+          <article className="overview-card"><div className="overview-card-top"><span className="overview-icon">⚑</span><span className="overview-label">MARKER BOARDS</span></div><strong className="overview-number">{tasks.length}</strong><div className="overview-card-foot">{count("Unassigned")} unassigned · {count("Verified")} verified</div><div className="overview-progress"><span style={{width: tasks.length ? `${Math.round(count("Verified") / tasks.length * 100)}%` : "0%"}}/></div></article>
+          <article className="overview-card"><div className="overview-card-top"><span className="overview-icon">◷</span><span className="overview-label">AWAITING REVIEW</span></div><strong className="overview-number">{count("Photo submitted") + count("Awaiting PICOP verification")}</strong><div className="overview-card-foot">Photo submissions and verification requests</div></article>
+          <article className="overview-card"><div className="overview-card-top"><span className="overview-icon">⇄</span><span className="overview-label">RAILWAY REFERENCE</span></div><strong className="overview-main-value">{elr || "ELR not set"}</strong><div className="overview-card-foot">{routeReference || "Route reference not set"}{startMiles !== "" || startChains !== "" ? ` · ${startMiles || "0"}m ${String(startChains || "0").padStart(2,"0")}ch` : ""}</div></article>
+        </div>
+      </section>
       <section className="map-column">
         <div className="site-toolbar">
           <div className="site-title-group">
