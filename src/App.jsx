@@ -281,6 +281,10 @@ export default function App() {
         return;
       }
     }
+    if (plannedStartAt && plannedEndAt && new Date(plannedEndAt) <= new Date(plannedStartAt)) {
+      setToast("Planned finish must be after the planned start.");
+      return;
+    }
     if (startMiles !== "" && endMiles !== "" && startChains !== "" && endChains !== "" &&
         Number(endMiles) * 80 + Number(endChains) < Number(startMiles) * 80 + Number(startChains)) {
       setToast("The end mileage must not be before the start mileage.");
