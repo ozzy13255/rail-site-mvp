@@ -151,6 +151,9 @@ export default function App() {
   const [startChains, setStartChains] = useState("");
   const [endMiles, setEndMiles] = useState("");
   const [endChains, setEndChains] = useState("");
+  const [possessionStatus, setPossessionStatus] = useState("Planning");
+  const [plannedStartAt, setPlannedStartAt] = useState("");
+  const [plannedEndAt, setPlannedEndAt] = useState("");
   const [siteLoading, setSiteLoading] = useState(false);
   const [siteSaving, setSiteSaving] = useState(false);
   const [filter, setFilter] = useState("All tasks");
@@ -230,7 +233,7 @@ export default function App() {
       setSiteLoading(true);
       const { data, error } = await supabase
         .from("worksites")
-        .select("id, name, reference, description, boundary, status, elr, route_reference, start_miles, start_chains, end_miles, end_chains")
+        .select("id, name, reference, description, boundary, status, possession_status, planned_start_at, planned_end_at, elr, route_reference, start_miles, start_chains, end_miles, end_chains")
         .eq("company_id", membership.company_id)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -249,6 +252,9 @@ export default function App() {
         setStartChains(data.start_chains ?? "");
         setEndMiles(data.end_miles ?? "");
         setEndChains(data.end_chains ?? "");
+        setPossessionStatus(data.possession_status || data.status || "Planning");
+        setPlannedStartAt(data.planned_start_at ? new Date(data.planned_start_at).toISOString().slice(0,16) : "");
+        setPlannedEndAt(data.planned_end_at ? new Date(data.planned_end_at).toISOString().slice(0,16) : "");
       }
       setSiteLoading(false);
     };
@@ -294,6 +300,10 @@ export default function App() {
         start_chains: startChains === "" ? null : Number(startChains),
         end_miles: endMiles === "" ? null : Number(endMiles),
         end_chains: endChains === "" ? null : Number(endChains),
+        possession_status: possessionStatus,
+        status: possessionStatus,
+        planned_start_at: plannedStartAt ? new Date(plannedStartAt).toISOString() : null,
+        planned_end_at: plannedEndAt ? new Date(plannedEndAt).toISOString() : null,
         updated_at: new Date().toISOString()
       };
       const request = worksiteId
@@ -317,6 +327,8 @@ export default function App() {
           latitude: Number(task.position[0]),
           longitude: Number(task.position[1]),
           status: task.status === "Verified" ? "verified" : task.status === "Unassigned" ? "planned" : "placed",
+          assigned_to: task.assignee === "Unassigned" ? null : task.assignee,
+          notes: task.notes || null,
           elr: (task.elr || elr).trim().toUpperCase() || null,
           route_reference: (task.routeReference || routeReference).trim() || null,
           mileage_miles: task.mileageMiles === "" || task.mileageMiles == null ? null : Number(task.mileageMiles),
@@ -376,7 +388,7 @@ export default function App() {
     const loadBoards = async () => {
       const { data, error } = await supabase
         .from("marker_boards")
-        .select("id, board_code, label, latitude, longitude, status, elr, route_reference, mileage_miles, mileage_chains")
+        .select("id, board_code, label, latitude, longitude, status, assigned_to, notes, elr, route_reference, mileage_miles, mileage_chains")
         .eq("worksite_id", worksiteId)
         .order("created_at", { ascending: true });
       if (!active) return;
@@ -392,14 +404,14 @@ export default function App() {
             id: code,
             dbId: row.id,
             label: row.label || `Marker board ${index + 1}`,
-            assignee: "Unassigned",
+            assignee: row.assigned_to || "Unassigned",
             status,
             position: [Number(row.latitude), Number(row.longitude)],
             elr: row.elr || "",
             routeReference: row.route_reference || "",
             mileageMiles: row.mileage_miles ?? "",
             mileageChains: row.mileage_chains ?? "",
-            notes: "",
+            notes: row.notes || "",
             demo: false
           };
         });
@@ -488,11 +500,28 @@ export default function App() {
           <div><div className="eyebrow">OPERATIONS CONTROL</div><h1>PICOP dashboard</h1><p>Work-site status, marker-board progress and railway location reference.</p></div>
           <div className="dashboard-live"><span className="online-dot"/><span>SESSION ACTIVE</span><small>{membership.companies?.name || "Company workspace"}</small></div>
         </div>
+        <div className="possession-controls">
+          <label>Possession status<select value={possessionStatus} onChange={e => setPossessionStatus(e.target.value)}><option>Planning</option><option>Briefing</option><option>In progress</option><option>Suspended</option><option>Complete</option><option>Cancelled</option></select></label>
+          <label>Planned start<input type="datetime-local" value={plannedStartAt} onChange={e => setPlannedStartAt(e.target.value)}/></label>
+          <label>Planned finish<input type="datetime-local" value={plannedEndAt} onChange={e => setPlannedEndAt(e.target.value)}/></label>
+          <button className="btn btn-primary possession-save" onClick={saveWorksite} disabled={siteSaving || siteLoading}>{siteSaving ? "Saving…" : "Save overview"}</button>
+        </div>
         <div className="overview-cards">
           <article className="overview-card overview-card-site"><div className="overview-card-top"><span className="overview-icon">⌖</span><span className="overview-label">ACTIVE WORK SITE</span></div><strong className="overview-main-value">{workSiteName || "Unnamed work site"}</strong><div className="overview-card-foot">{workRef || "No work-site reference"} <span className="overview-status-dot"/> {worksiteId ? "SAVED" : "DRAFT"}</div></article>
           <article className="overview-card"><div className="overview-card-top"><span className="overview-icon">⚑</span><span className="overview-label">MARKER BOARDS</span></div><strong className="overview-number">{tasks.length}</strong><div className="overview-card-foot">{count("Unassigned")} unassigned · {count("Verified")} verified</div><div className="overview-progress"><span style={{width: tasks.length ? `${Math.round(count("Verified") / tasks.length * 100)}%` : "0%"}}/></div></article>
           <article className="overview-card"><div className="overview-card-top"><span className="overview-icon">◷</span><span className="overview-label">AWAITING REVIEW</span></div><strong className="overview-number">{count("Photo submitted") + count("Awaiting PICOP verification")}</strong><div className="overview-card-foot">Photo submissions and verification requests</div></article>
           <article className="overview-card"><div className="overview-card-top"><span className="overview-icon">⇄</span><span className="overview-label">RAILWAY REFERENCE</span></div><strong className="overview-main-value">{elr || "ELR not set"}</strong><div className="overview-card-foot">{routeReference || "Route reference not set"}{startMiles !== "" || startChains !== "" ? ` · ${startMiles || "0"}m ${String(startChains || "0").padStart(2,"0")}ch` : ""}</div></article>
+        </div>
+        <div className="outstanding-strip">
+          <div className="outstanding-title"><span className="outstanding-mark">!</span><div><strong>Outstanding actions</strong><small>Items that may need PICOP attention</small></div></div>
+          <div className="outstanding-items">
+            {tasks.length === 0 && <span className="action-chip action-neutral">No marker boards added</span>}
+            {tasks.some(task => task.status === "Unassigned") && <span className="action-chip action-warning">{count("Unassigned")} board(s) unassigned</span>}
+            {(count("Photo submitted") + count("Awaiting PICOP verification")) > 0 && <span className="action-chip action-warning">{count("Photo submitted") + count("Awaiting PICOP verification")} awaiting review</span>}
+            {(!tasks.some(task => task.status === "Unassigned") && count("Photo submitted") + count("Awaiting PICOP verification") === 0) && <span className="action-chip action-clear">No outstanding board actions</span>}
+            {(!elr.trim() || !routeReference.trim() || startMiles === "" || startChains === "" || endMiles === "" || endChains === "") && <span className="action-chip action-neutral">Railway reference incomplete</span>}
+            {plannedStartAt && plannedEndAt && new Date(plannedEndAt) <= new Date(plannedStartAt) && <span className="action-chip action-danger">Planned finish must be after start</span>}
+          </div>
         </div>
       </section>
       <section className="map-column">
