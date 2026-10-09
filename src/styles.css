@@ -378,3 +378,20 @@ body{background:#0b1420;color:#e8eef4}
 @media(prefers-reduced-motion:reduce){
   .calendar-event.event-active-rainbow{animation:none;background-position:50% 50%}
 }
+
+
+/* PICOP marker-board assignment panel */
+.picop-assignment-modal{width:min(100%,820px)}
+.picop-assignment-empty{padding:22px;color:#b7c7d4;font-size:13px;line-height:1.6;overflow:auto}
+.picop-assignment-intro{display:flex;flex-direction:column;gap:4px;padding:14px 20px 10px;color:#9eb2c1;font-size:11px;line-height:1.5}
+.picop-assignment-intro strong{font-size:13px;color:#f1f5f8}
+.picop-assignment-list{padding:0 20px 12px;overflow:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:9px}
+.picop-assignment-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px, .9fr);align-items:center;gap:16px;padding:13px;border:1px solid #2c4355;border-radius:9px;background:#122333}
+.picop-assignment-board{min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:5px}
+.picop-assignment-board strong{font-size:13px;color:#edf3f7}
+.picop-assignment-board small{font-size:10px;color:#92a8b8;line-height:1.5}
+.picop-assignment-row label{display:flex;flex-direction:column;gap:6px;color:#a9bdcc;font-size:10px;font-weight:700}
+.picop-assignment-row select{width:100%;min-width:0;box-sizing:border-box;border:1px solid #354d61;border-radius:6px;background:#0b1824;color:#f0f5f8;color-scheme:dark;padding:10px;font-size:11px}
+.picop-assignment-note{margin:0 20px 16px;padding:11px 12px;border:1px solid #65502e;border-radius:7px;background:#2c281f;color:#e0d0aa;font-size:10px;line-height:1.6}
+.picop-assignment-response-actions{display:flex;gap:8px;margin-top:12px}
+@media(max-width:650px){.picop-assignment-row{grid-template-columns:1fr;gap:10px;padding:11px}.picop-assignment-list{padding:0 12px 12px}.picop-assignment-intro{padding:12px}.picop-assignment-note{margin:0 12px 12px}.picop-assignment-modal .possession-modal-header{align-items:flex-start}.picop-assignment-modal .possession-modal-footer{align-items:stretch;flex-direction:column;padding:12px}.picop-assignment-modal .possession-footer-actions{width:100%;flex-wrap:wrap}.picop-assignment-modal .possession-footer-actions .btn{flex:1}.picop-assignment-response-actions{flex-wrap:wrap}}
