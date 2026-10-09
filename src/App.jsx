@@ -306,6 +306,10 @@ export default function App() {
         return;
       }
     }
+    if (!plannedStartAt || !plannedEndAt) {
+      setToast("Enter the exact planned possession start and finish date/time.");
+      return;
+    }
     if (plannedStartAt && plannedEndAt && new Date(plannedEndAt) <= new Date(plannedStartAt)) {
       setToast("Planned finish must be after the planned start.");
       return;
@@ -344,7 +348,6 @@ export default function App() {
         return;
       }
       const savedWorksiteId = data.id;
-      setWorksiteId(savedWorksiteId);
 
       const boardTasks = tasks.filter(task => !task.demo);
       let savedBoardCount = 0;
@@ -374,6 +377,7 @@ export default function App() {
         savedBoardCount += 1;
         if (!task.dbId) updateTask(task.id, { dbId: boardData.id, demo: false });
       }
+      setWorksiteId(savedWorksiteId);
       const { data: refreshedWorksites } = await supabase.from("worksites").select("id, name, reference, description, boundary, status, possession_status, planned_start_at, planned_end_at, elr, route_reference, start_miles, start_chains, end_miles, end_chains, created_at").eq("company_id", membership.company_id).order("created_at", { ascending: false });
       if (refreshedWorksites) setCalendarWorksites(refreshedWorksites);
       setSelectedCalendarDate(plannedStartAt ? plannedStartAt.slice(0, 10) : selectedCalendarDate);
