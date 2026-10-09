@@ -210,6 +210,7 @@ export default function App() {
   const [profileEmail, setProfileEmail] = useState("");
   const [profileRole, setProfileRole] = useState("planner");
   const [profileSaving, setProfileSaving] = useState(false);
+  const [profileCreateError, setProfileCreateError] = useState("");
   const [picopOptions, setPicopOptions] = useState([]);
   const [teamOptions, setTeamOptions] = useState([]);
   const [assignedPicopEmail, setAssignedPicopEmail] = useState("");
@@ -387,6 +388,7 @@ export default function App() {
     event.preventDefault();
     if (!supabase || !membership?.company_id || !["owner", "admin"].includes(membership.role)) return;
     setProfileSaving(true);
+    setProfileCreateError("");
     try {
       const { data, error } = await supabase.functions.invoke("create-profile", {
         body: { email: profileEmail.trim(), display_name: profileName.trim(), employee_number: profileEmployeeNumber.trim(), sentinel_number: profileSentinelNumber.trim(), temp_password: profileTempPassword, role: profileRole, company_id: membership.company_id }
@@ -400,7 +402,10 @@ export default function App() {
         .eq("company_id", membership.company_id).order("created_at", { ascending: true });
       if (!refreshError && refreshed) setCompanyProfiles(refreshed);
     } catch (error) {
-      setToast(error?.message || "Could not create profile. Please try again.");
+      let message = error?.message || "Could not create profile. Please try again.";
+      try { if (error?.context?.json) { const details = await error.context.json(); if (details?.error) message = details.error; } } catch {}
+      setProfileCreateError(message);
+      setToast(message);
     } finally { setProfileSaving(false); }
   };
 
@@ -1244,6 +1249,7 @@ export default function App() {
             <label>Profile type<select value={profileRole} onChange={e => setProfileRole(e.target.value)}><option value="planner">Planner — possessions and calendar</option><option value="picop">PICOP — acceptance and board verification</option><option value="member">Board-placement user — assigned tasks</option></select></label>
             <div className="profile-role-note">{profileRole === "planner" ? "Can create, schedule, edit, cancel and delete work sites." : profileRole === "picop" ? "Can review assigned possessions and manage marker-board verification." : "Can view assigned board tasks and submit placement evidence."}</div>
             <button className="btn btn-primary btn-full" type="submit" disabled={profileSaving}>{profileSaving ? "Creating account…" : "Create account"}</button>
+            {profileCreateError && <div className="profile-create-error" role="alert">{profileCreateError}</div>}
           </form>
           <section className="profile-list-card"><div className="profile-card-heading"><span className="overview-icon">♙</span><div><h2>Company profiles</h2><p>Role assignments for this workspace</p></div></div>
             {profilesLoading ? <p className="profile-empty">Loading profiles…</p> : companyProfiles.length === 0 ? <p className="profile-empty">No profiles found.</p> : <div className="profile-list">{companyProfiles.map(profile => <div className="profile-row" key={profile.user_id}><div className="profile-avatar">{(profile.display_name || profile.email || "?").slice(0,1).toUpperCase()}</div><div className="profile-row-main"><strong>{profile.display_name || profile.email || "Company user"}</strong><small>{profile.email || "Email not recorded"}</small><small>Employee: {profile.employee_number || "—"} · Sentinel: {profile.sentinel_number || "—"}</small></div><span className={`profile-role-badge role-${profile.role}`}>{profile.role === "member" ? "BOARD USER" : profile.role.toUpperCase()}</span></div>)}</div>}
