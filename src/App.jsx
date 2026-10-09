@@ -289,11 +289,11 @@ export default function App() {
     if (error) throw new Error(data?.error || error.message || "Could not update password.");
     if (data?.error) throw new Error(data.error);
     setMustChangePassword(false);
-    const { data: current } = await supabase.auth.getSession();
-    if (!current?.session) throw new Error("Password updated. Please sign in again.");
-    setSession(current.session);
+    const { data: refreshedSession, error: refreshSessionError } = await supabase.auth.refreshSession();
+    if (refreshSessionError || !refreshedSession?.session) throw new Error("Password updated. Please sign in again.");
+    setSession(refreshedSession.session);
     const { data: member, error: memberError } = await supabase.from("company_members")
-      .select("company_id, role, companies(name)").eq("user_id", current.session.user.id).maybeSingle();
+      .select("company_id, role, companies(name)").eq("user_id", refreshedSession.session.user.id).maybeSingle();
     if (memberError || !member) throw new Error("Password changed, but company access could not be loaded. Contact the RailSite owner.");
     setMembership(member);
     setActivePage(member.role === "member" ? "boards" : "overview");
@@ -393,10 +393,10 @@ export default function App() {
       });
       if (error) throw new Error(data?.error || error.message || "Could not create profile.");
       if (data?.error) throw new Error(data.error);
-      setToast(data?.message || "Profile created and invitation sent.");
+      setToast(data?.message || "Account created. Share the temporary password privately.");
       setProfileName(""); setProfileEmail(""); setProfileEmployeeNumber(""); setProfileSentinelNumber(""); setProfileTempPassword(""); setProfileRole("planner");
       const { data: refreshed, error: refreshError } = await supabase.from("company_members")
-        .select("user_id, role, email, display_name, created_at")
+        .select("user_id, role, email, display_name, employee_number, sentinel_number, created_at")
         .eq("company_id", membership.company_id).order("created_at", { ascending: true });
       if (!refreshError && refreshed) setCompanyProfiles(refreshed);
     } catch (error) {
