@@ -174,6 +174,7 @@ export default function App() {
   const [profileRole, setProfileRole] = useState("planner");
   const [profileSaving, setProfileSaving] = useState(false);
   const [picopOptions, setPicopOptions] = useState([]);
+  const [teamOptions, setTeamOptions] = useState([]);
   const [assignedPicopEmail, setAssignedPicopEmail] = useState("");
   const [picopResponse, setPicopResponse] = useState("pending");
 
@@ -348,6 +349,11 @@ export default function App() {
       if (!active) return;
       if (!error) setPicopOptions((data || []).filter(profile => profile.email));
     });
+    if (active) {
+      supabase.from("company_members").select("user_id, email, display_name").eq("company_id", membership.company_id).eq("role", "member").order("created_at", { ascending: true }).then(({ data, error }) => {
+        if (active && !error) setTeamOptions((data || []).filter(profile => profile.email));
+      });
+    }
     return () => { active = false; };
   }, [membership?.company_id]);
 
@@ -453,6 +459,7 @@ export default function App() {
           longitude: Number(task.position[1]),
           status: task.status === "Verified" ? "verified" : task.status === "Unassigned" ? "planned" : "placed",
           assigned_to: task.assignee === "Unassigned" ? null : task.assignee,
+          assigned_email: task.assignedEmail || null,
           notes: task.notes || null,
           elr: (task.elr || elr).trim().toUpperCase() || null,
           route_reference: (task.routeReference || routeReference).trim() || null,
@@ -587,7 +594,7 @@ export default function App() {
     const loadBoards = async () => {
       const { data, error } = await supabase
         .from("marker_boards")
-        .select("id, board_code, label, latitude, longitude, status, assigned_to, notes, elr, route_reference, mileage_miles, mileage_chains")
+        .select("id, board_code, label, latitude, longitude, status, assigned_to, assigned_email, notes, elr, route_reference, mileage_miles, mileage_chains")
         .eq("worksite_id", worksiteId)
         .order("created_at", { ascending: true });
       if (!active) return;
@@ -604,6 +611,7 @@ export default function App() {
             dbId: row.id,
             label: row.label || `Marker board ${index + 1}`,
             assignee: row.assigned_to || "Unassigned",
+            assignedEmail: row.assigned_email || "",
             status,
             position: [Number(row.latitude), Number(row.longitude)],
             elr: row.elr || "",
@@ -974,8 +982,8 @@ export default function App() {
           <h2>{selected.label}</h2>
           <div className="field">
             <label htmlFor="assignee">Assign team member</label>
-            <select id="assignee" value={selected.assignee} onChange={e => updateTask(selected.id, { assignee: e.target.value, status: e.target.value === "Unassigned" ? "Unassigned" : (selected.status === "Unassigned" ? "Assigned" : selected.status) })}>
-              <option>Unassigned</option><option>Alex Morgan</option><option>Jamie Taylor</option><option>Sam Patel</option><option>Riley James</option>
+            <select id="assignee" value={selected.assignedEmail || ""} onChange={e => { const profile = teamOptions.find(item => item.email === e.target.value); updateTask(selected.id, { assignedEmail: profile?.email || "", assignee: profile?.display_name || profile?.email || "Unassigned", status: profile ? (selected.status === "Unassigned" ? "Assigned" : selected.status) : "Unassigned" }); }}>
+              <option value="">Unassigned</option>{teamOptions.map(profile => <option key={profile.user_id} value={profile.email}>{profile.display_name ? profile.display_name + " — " : ""}{profile.email}</option>)}
             </select>
           </div>
           <div className="marker-mileage-card">
