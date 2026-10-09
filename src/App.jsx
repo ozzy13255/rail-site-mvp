@@ -165,6 +165,7 @@ export default function App() {
   const [filter, setFilter] = useState("All tasks");
   const [toast, setToast] = useState("");
   const [photoPreviews, setPhotoPreviews] = useState({});
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
 
   useEffect(() => {
@@ -605,7 +606,7 @@ export default function App() {
   if (authLoading) return <main className="login-page"><section className="login-card"><div className="login-brand-mark">R</div><h1>Opening RailSite…</h1><p className="login-intro">Checking your secure session.</p></section></main>;
   if (!session || !membership) return <LoginScreen configured={Boolean(supabase)} loading={authLoading} error={authError} onSignIn={handleSignIn} onResetPassword={handleResetPassword} />;
 
-  return <div className="app-shell">
+  return <div className={"app-shell " + (sidebarCollapsed ? "sidebar-collapsed" : "")}>
     <header className="topbar">
       <div className="brand">
         <div className="brand-mark"><span>R</span></div>
@@ -618,8 +619,18 @@ export default function App() {
       </div>
     </header>
 
-    <main className="workspace">
-      <section className="planning-calendar">
+    <div className="app-frame">
+      <aside className="app-sidebar" aria-label="Main navigation">
+        <button className="sidebar-toggle" type="button" onClick={() => setSidebarCollapsed(v => !v)} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}><span>{sidebarCollapsed ? "☰" : "‹"}</span><span className="sidebar-label">{sidebarCollapsed ? "" : "Collapse menu"}</span></button>
+        <div className="sidebar-section-label">WORKSPACE</div>
+        <button className="sidebar-link" onClick={() => document.getElementById("overview-screen")?.scrollIntoView({behavior:"smooth",block:"start"})}><span className="sidebar-icon">▦</span><span className="sidebar-label">Overview</span></button>
+        <button className="sidebar-link" onClick={() => document.getElementById("calendar-screen")?.scrollIntoView({behavior:"smooth",block:"start"})}><span className="sidebar-icon">▦</span><span className="sidebar-label">Possession calendar</span></button>
+        <button className="sidebar-link" onClick={() => document.getElementById("map-screen")?.scrollIntoView({behavior:"smooth",block:"start"})}><span className="sidebar-icon">⌖</span><span className="sidebar-label">Worksites &amp; map</span></button>
+        <button className="sidebar-link" onClick={() => document.getElementById("boards-screen")?.scrollIntoView({behavior:"smooth",block:"start"})}><span className="sidebar-icon">⚑</span><span className="sidebar-label">Marker boards &amp; tasks</span></button>
+        <div className="sidebar-spacer"></div><div className="sidebar-footer"><span className="online-dot"/><span className="sidebar-label">Company workspace</span></div>
+      </aside>
+      <main className="workspace">
+      <section className="planning-calendar" id="calendar-screen">
         <div className="calendar-heading">
           <div><div className="eyebrow">POSSESSION PLANNING</div><h2>Possession calendar</h2><p>Select a date to plan a new possession, or open an existing one.</p></div>
           <div className="calendar-actions">
@@ -704,7 +715,7 @@ export default function App() {
           <div className="possession-modal-footer"><span>Changes are saved to the shared company workspace.</span><div><button className="btn btn-secondary" type="button" onClick={() => { setPossessionEditorOpen(false); setEditorPlacingBoard(false); }}>Cancel</button><button className="btn btn-primary" type="button" onClick={saveWorksite} disabled={siteSaving || siteLoading}>{siteSaving ? "Saving…" : "Save possession"}</button></div></div>
         </section>
       </div>}
-      <section className="dashboard-overview">
+      <section className="dashboard-overview" id="overview-screen">
         <div className="dashboard-heading">
           <div><div className="eyebrow">OPERATIONS CONTROL</div><h1>PICOP dashboard</h1><p>Work-site status, marker-board progress and railway location reference.</p></div>
           <div className="dashboard-live"><span className="online-dot"/><span>SESSION ACTIVE</span><small>{membership.companies?.name || "Company workspace"}</small></div>
@@ -733,7 +744,7 @@ export default function App() {
           </div>
         </div>
       </section>
-      <section className="map-column">
+      <section className="map-column" id="map-screen">
         <div className="site-toolbar">
           <div className="site-title-group">
             <div className="eyebrow">ACTIVE WORK SITE</div>
@@ -801,7 +812,7 @@ export default function App() {
         </div>
       </section>
 
-      <aside className="side-panel">
+      <aside className="side-panel" id="boards-screen">
         <div className="panel-heading">
           <div><div className="eyebrow">PICOP DASHBOARD</div><h1>Work-site tasks</h1></div>
           <span className="count-badge">{tasks.length}</span>
@@ -876,7 +887,8 @@ export default function App() {
         </div>
         <div className="panel-bottom-note"><span className="lock-icon">▣</span> Demo data only · Changes are not saved between reloads</div>
       </aside>
-    </main>
+      </main>
+    </div>
     <footer className="app-footer"><span>RAILSITE MVP <b>0.1.0</b></span><span>Prototype for workflow review · Not for operational use</span></footer>
   </div>;
 }
