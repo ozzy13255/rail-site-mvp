@@ -47,3 +47,9 @@
 .marker-chain-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
 .marker-mileage-card>small{display:block;font-size:9px;line-height:1.45;color:#788897;margin-top:9px}
 @media(max-width:420px){.rail-mileage-panel{padding:12px}.rail-reference-fields,.mileage-range-fields{grid-template-columns:1fr}.mileage-endpoint>div{grid-template-columns:1fr 1fr}.site-ref input{width:125px}}
+
+
+.btn-danger{border:1px solid #e7b8b5;background:#fff4f3;color:#a6332d}
+.btn-danger:hover{background:#ffe8e6;border-color:#d88b86}
+.btn-danger:disabled{opacity:.45;cursor:not-allowed}
+.delete-board-button{margin-top:9px}
