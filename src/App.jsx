@@ -417,13 +417,15 @@ export default function App() {
     if (error) setAuthError("Could not sign out. Please try again.");
   };
 
-  const selected = tasks.find(t => t.id === selectedId) || tasks[0];
+  const selected = tasks.find(t => t.id === selectedId) || tasks[0] || { id: "", label: "No marker board selected", assignee: "Unassigned", status: "Unassigned", position: [0, 0], notes: "", demo: true };
   const updateTask = (id, patch) => setTasks(prev => prev.map(t => t.id === id ? { ...t, ...patch } : t));
   const setSite = React.useCallback((coords) => setWorkSite(coords), []);
   const choosePin = React.useCallback((position) => {
     if (!placingPin) return;
-    const id = `MB-${String(tasks.length + 1).padStart(2, "0")}`;
-    const task = { id, label: `Marker board ${tasks.length + 1}`, assignee: "Unassigned", status: "Unassigned", position, elr, routeReference, mileageMiles: "", mileageChains: "", notes: "", demo: false, dbId: null };
+    let nextNumber = 1;
+    while (tasks.some(task => task.id === `MB-${String(nextNumber).padStart(2, "0")}`)) nextNumber += 1;
+    const id = `MB-${String(nextNumber).padStart(2, "0")}`;
+    const task = { id, label: `Marker board ${nextNumber}`, assignee: "Unassigned", status: "Unassigned", position, elr, routeReference, mileageMiles: "", mileageChains: "", notes: "", demo: false, dbId: null };
     setTasks(prev => [...prev, task]);
     setSelectedId(id);
     setPlacingPin(false);
@@ -617,7 +619,7 @@ export default function App() {
             <button className="btn btn-secondary" onClick={() => { updateTask(selected.id, { status: "Awaiting PICOP verification" }); setToast("Task moved to awaiting verification."); window.setTimeout(() => setToast(""), 3000); }}>Request review</button>
             <button className="btn btn-primary" onClick={() => { updateTask(selected.id, { status: "Verified" }); setToast("Marked verified in this demo only."); window.setTimeout(() => setToast(""), 3000); }}>Verify task</button>
           </div>
-          <button className="btn btn-danger btn-full delete-board-button" onClick={deleteSelectedBoard} disabled={!selected}>Delete selected marker board</button>
+          <button className="btn btn-danger btn-full delete-board-button" onClick={deleteSelectedBoard} disabled={!selected.id}>Delete selected marker board</button>
           <p className="safety-note"><strong>Safety note:</strong> This prototype does not confirm railway protection, safe access, or correct placement. Use approved railway procedures and independent checks.</p>
         </div>
         <div className="panel-bottom-note"><span className="lock-icon">▣</span> Demo data only · Changes are not saved between reloads</div>
