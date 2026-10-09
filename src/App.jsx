@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polygon, LayersControl, useMap } from "react-leaflet";
 import L from "leaflet";
+import { supabase, supabaseConfigured } from "./lib/supabase.js";
 import "leaflet-draw";
 import "leaflet-draw/dist/leaflet.draw.css";
 
@@ -85,6 +86,151 @@ export default function App() {
   const [filter, setFilter] = useState("All tasks");
   const [toast, setToast] = useState("");
   const [photoPreviews, setPhotoPreviews] = useState({});
+  const [authUser, setAuthUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [companyId, setCompanyId] = useState(null);
+  const [companyRole, setCompanyRole] = useState(null);
+  const [savedWorksiteId, setSavedWorksiteId] = useState(null);
+  const [persistenceState, setPersistenceState] = useState("Not connected");
+
+  useEffect(() => {
+    if (!supabase) {
+      setAuthLoading(false);
+      return;
+    }
+    let active = true;
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!active) return;
+      if (error) setAuthError(error.message);
+      setAuthUser(data?.session?.user || null);
+      if (!data?.session?.user) setAuthLoading(false);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
+      setAuthUser(session?.user || null);
+      if (!session?.user) {
+        setCompanyId(null);
+        setCompanyRole(null);
+        setSavedWorksiteId(null);
+        setPersistenceState("Signed out");
+      }
+      setAuthLoading(false);
+    });
+    return () => {
+      active = false;
+      listener?.subscription?.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!supabase || !authUser) return;
+    let active = true;
+    (async () => {
+      setPersistenceState("Loading company access…");
+      const { data: membership, error: membershipError } = await supabase
+        .from("company_members")
+        .select("company_id, role")
+        .eq("user_id", authUser.id)
+        .limit(1)
+        .maybeSingle();
+      if (!active) return;
+      if (membershipError || !membership) {
+        setCompanyId(null);
+        setCompanyRole(null);
+        setPersistenceState("No company membership");
+        setAuthError(membershipError?.message || "Your account is signed in but has not been added to a RailSite company.");
+        return;
+      }
+      setCompanyId(membership.company_id);
+      setCompanyRole(membership.role);
+      const { data: site, error: siteError } = await supabase
+        .from("worksites")
+        .select("id, name, description, boundary, status, updated_at")
+        .eq("company_id", membership.company_id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!active) return;
+      if (siteError) {
+        setPersistenceState("Database read failed");
+        setAuthError(siteError.message);
+        return;
+      }
+      if (site) {
+        setSavedWorksiteId(site.id);
+        if (site.name) setWorkSiteName(site.name);
+        if (Array.isArray(site.boundary) && site.boundary.length > 2) setWorkSite(site.boundary);
+        setPersistenceState("Connected · work site loaded");
+      } else {
+        setSavedWorksiteId(null);
+        setPersistenceState("Connected · no saved work site yet");
+      }
+      setAuthError("");
+    })();
+    return () => { active = false; };
+  }, [authUser]);
+
+  const signIn = async (event) => {
+    event?.preventDefault();
+    if (!supabase) {
+      setAuthError("Supabase environment variables are not configured yet.");
+      return;
+    }
+    setAuthBusy(true);
+    setAuthError("");
+    const { error } = await supabase.auth.signInWithPassword({ email: authEmail.trim(), password: authPassword });
+    setAuthBusy(false);
+    if (error) setAuthError(error.message);
+    else {
+      setAuthOpen(false);
+      setAuthPassword("");
+      setToast("Signed in. Loading your RailSite company data…");
+      window.setTimeout(() => setToast(""), 3500);
+    }
+  };
+
+  const signOut = async () => {
+    if (!supabase) return;
+    const { error } = await supabase.auth.signOut();
+    if (error) setAuthError(error.message);
+  };
+
+  const saveWorkSite = async () => {
+    if (!supabase || !authUser || !companyId) {
+      setAuthOpen(true);
+      setAuthError("Sign in with a RailSite company account before saving.");
+      return;
+    }
+    setPersistenceState("Saving work site…");
+    setAuthError("");
+    const payload = {
+      name: workSiteName.trim() || "Untitled work site",
+      description: workRef,
+      boundary: workSite,
+      status: "planned",
+      company_id: companyId,
+      updated_at: new Date().toISOString(),
+    };
+    const query = savedWorksiteId
+      ? supabase.from("worksites").update(payload).eq("id", savedWorksiteId).select("id").single()
+      : supabase.from("worksites").insert(payload).select("id").single();
+    const { data, error } = await query;
+    if (error) {
+      setPersistenceState("Save failed");
+      setAuthError(error.message);
+      setToast("Could not save work site. Check your company permissions.");
+    } else {
+      setSavedWorksiteId(data.id);
+      setPersistenceState("Saved to Supabase");
+      setToast("Work-site name and boundary saved to Supabase.");
+    }
+    window.setTimeout(() => setToast(""), 4500);
+  };
 
   const selected = tasks.find(t => t.id === selectedId) || tasks[0];
   const updateTask = (id, patch) => setTasks(prev => prev.map(t => t.id === id ? { ...t, ...patch } : t));
@@ -141,7 +287,7 @@ export default function App() {
       </div>
       <div className="topbar-right">
         <div className="role-chip"><span className="online-dot"/> PICOP VIEW</div>
-        <button className="btn btn-quiet" onClick={() => { setToast("Authentication is not connected in this starter build."); window.setTimeout(() => setToast(""), 3000); }}>Sign in</button>
+        {authUser ? <button className="btn btn-quiet" onClick={signOut}>Sign out · {authUser.email}</button> : <button className="btn btn-quiet" onClick={() => { setAuthError(""); setAuthOpen(true); }}>Sign in</button>}
       </div>
     </header>
 
@@ -155,7 +301,7 @@ export default function App() {
           </div>
           <div className="toolbar-actions">
             <button className={`btn ${placingPin ? "btn-warning" : "btn-secondary"}`} onClick={() => setPlacingPin(v => !v)}>{placingPin ? "Tap map to place pin" : "+ Place board pin"}</button>
-            <button className="btn btn-primary" onClick={() => { setToast("Save is a demo action. Connect Supabase to persist this work site."); window.setTimeout(() => setToast(""), 3500); }}>Save work site</button>
+            <button className="btn btn-primary" onClick={saveWorkSite} disabled={!authUser || !companyId}>Save work site</button>
           </div>
         </div>
         <div className="map-wrap">
@@ -257,9 +403,27 @@ export default function App() {
           </div>
           <p className="safety-note"><strong>Safety note:</strong> This prototype does not confirm railway protection, safe access, or correct placement. Use approved railway procedures and independent checks.</p>
         </div>
-        <div className="panel-bottom-note"><span className="lock-icon">▣</span> Demo data only · Changes are not saved between reloads</div>
+        <div className="panel-bottom-note"><span className="lock-icon">▣</span> {authUser ? persistenceState : "Sign in to save work-site details and boundaries. Marker-board tasks are still demo data."}</div>
       </aside>
     </main>
+    {authOpen && <div className="auth-backdrop" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) setAuthOpen(false); }}>
+      <section className="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+        <button className="auth-close" type="button" aria-label="Close sign-in" onClick={() => setAuthOpen(false)}>×</button>
+        <div className="eyebrow">RAILSITE ACCOUNT</div>
+        <h2 id="auth-title">Sign in</h2>
+        <p>Use the email and password for your RailSite Supabase account.</p>
+        {!supabaseConfigured && <div className="inline-error">Supabase connection settings are not configured for this deployment yet.</div>}
+        <form onSubmit={signIn}>
+          <label className="auth-label" htmlFor="auth-email">Email address</label>
+          <input id="auth-email" type="email" autoComplete="username" required value={authEmail} onChange={e => setAuthEmail(e.target.value)} />
+          <label className="auth-label" htmlFor="auth-password">Password</label>
+          <input id="auth-password" type="password" autoComplete="current-password" required value={authPassword} onChange={e => setAuthPassword(e.target.value)} />
+          {authError && <div className="auth-error">{authError}</div>}
+          <button className="btn btn-primary auth-submit" type="submit" disabled={authBusy || !supabaseConfigured}>{authBusy ? "Signing in…" : "Sign in securely"}</button>
+        </form>
+        <small>Accounts must be created and assigned to a company by an authorised administrator.</small>
+      </section>
+    </div>}
     <footer className="app-footer"><span>RAILSITE MVP <b>0.1.0</b></span><span>Prototype for workflow review · Not for operational use</span></footer>
   </div>;
 }
