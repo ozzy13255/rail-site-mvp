@@ -173,6 +173,9 @@ export default function App() {
   const [profileEmail, setProfileEmail] = useState("");
   const [profileRole, setProfileRole] = useState("planner");
   const [profileSaving, setProfileSaving] = useState(false);
+  const [picopOptions, setPicopOptions] = useState([]);
+  const [assignedPicopEmail, setAssignedPicopEmail] = useState("");
+  const [picopResponse, setPicopResponse] = useState("pending");
 
 
   useEffect(() => {
@@ -248,7 +251,7 @@ export default function App() {
       setSiteLoading(true);
       const { data, error } = await supabase
         .from("worksites")
-        .select("id, name, reference, description, boundary, status, possession_status, planned_start_at, planned_end_at, elr, route_reference, start_miles, start_chains, end_miles, end_chains, created_at")
+        .select("id, name, reference, description, boundary, status, possession_status, planned_start_at, planned_end_at, elr, route_reference, start_miles, start_chains, end_miles, end_chains, assigned_picop_email, picop_response, created_at")
         .eq("company_id", membership.company_id)
         .order("created_at", { ascending: false });
       if (!active) return;
@@ -269,6 +272,8 @@ export default function App() {
           setStartChains(first.start_chains ?? "");
           setEndMiles(first.end_miles ?? "");
           setEndChains(first.end_chains ?? "");
+          setAssignedPicopEmail(first.assigned_picop_email || "");
+          setPicopResponse(first.picop_response || "pending");
           setPossessionStatus(first.possession_status || first.status || "Planning");
           setPlannedStartAt(first.planned_start_at ? toLocalDateTime(first.planned_start_at) : "");
           setPlannedEndAt(first.planned_end_at ? toLocalDateTime(first.planned_end_at) : "");
@@ -284,6 +289,8 @@ export default function App() {
           setStartChains("");
           setEndMiles("");
           setEndChains("");
+          setAssignedPicopEmail("");
+          setPicopResponse("pending");
           setPlannedStartAt("");
           setPlannedEndAt("");
           setTasks([]);
@@ -333,6 +340,16 @@ export default function App() {
       setToast(error?.message || "Could not create profile. Please try again.");
     } finally { setProfileSaving(false); }
   };
+
+  useEffect(() => {
+    if (!supabase || !membership?.company_id) return;
+    let active = true;
+    supabase.from("company_members").select("user_id, email, display_name").eq("company_id", membership.company_id).eq("role", "picop").order("created_at", { ascending: true }).then(({ data, error }) => {
+      if (!active) return;
+      if (!error) setPicopOptions((data || []).filter(profile => profile.email));
+    });
+    return () => { active = false; };
+  }, [membership?.company_id]);
 
   // Keep the shared company calendar current for other signed-in members.
   // Realtime is used when available, with a lightweight polling fallback.
@@ -406,6 +423,8 @@ export default function App() {
         end_miles: endMiles === "" ? null : Number(endMiles),
         end_chains: endChains === "" ? null : Number(endChains),
         possession_status: possessionStatus,
+        assigned_picop_email: assignedPicopEmail || null,
+        picop_response: picopResponse || "pending",
         // The database status column has a constrained operational vocabulary;
         // keep the user-facing planning status separately in possession_status.
         status: ({ "Planning": "planned", "Briefing": "planned", "In progress": "active", "Suspended": "active", "Complete": "completed", "Cancelled": "cancelled" })[possessionStatus] || "planned",
@@ -622,6 +641,8 @@ export default function App() {
     setStartChains("");
     setEndMiles("");
     setEndChains("");
+    setAssignedPicopEmail("");
+    setPicopResponse("pending");
     setPossessionStatus("Planning");
     setPlannedStartAt(`${dateString}T00:00`);
     setPlannedEndAt("");
@@ -643,6 +664,8 @@ export default function App() {
     setStartChains(row.start_chains ?? "");
     setEndMiles(row.end_miles ?? "");
     setEndChains(row.end_chains ?? "");
+    setAssignedPicopEmail(row.assigned_picop_email || "");
+    setPicopResponse(row.picop_response || "pending");
     setPossessionStatus(row.possession_status || row.status || "Planning");
     setPlannedStartAt(row.planned_start_at ? toLocalDateTime(row.planned_start_at) : "");
     setPlannedEndAt(row.planned_end_at ? toLocalDateTime(row.planned_end_at) : "");
@@ -768,7 +791,7 @@ export default function App() {
               <div className="calendar-day-events">
                 {entries.map(item => <button key={item.id} className={`calendar-event event-${statusClass(item.possession_status || item.status || "Planning")}`} onClick={() => ["owner", "admin", "planner"].includes(membership.role) ? openPossession(item) : setToast("PICOP possession acceptance and assigned-board workflow is being connected next.")} title={item.name}>
                   <span>{item.name || "Untitled possession"}</span>
-                  <small>{(item.possession_status || item.status || "").toLowerCase() === "cancelled" ? "CANCELLED · " : ""}{item.elr || "ELR TBC"}{item.start_miles !== null && item.start_miles !== undefined ? ` · ${item.start_miles}m ${String(item.start_chains ?? 0).padStart(2,"0")}ch` : ""}</small>
+                  <small>{(item.possession_status || item.status || "").toLowerCase() === "cancelled" ? "CANCELLED · " : ""}{item.elr || "ELR TBC"}{item.start_miles !== null && item.start_miles !== undefined ? ` · ${item.start_miles}m ${String(item.start_chains ?? 0).padStart(2,"0")}ch` : ""}{item.assigned_picop_email ? ` · PICOP: ${item.assigned_picop_email}` : " · PICOP unassigned"}{item.picop_response && item.picop_response !== "pending" ? ` · ${item.picop_response.toUpperCase()}` : ""}</small>
                 </button>)}
               </div>
             </div>;
@@ -787,6 +810,7 @@ export default function App() {
               <label>Possession / work-site name<input value={workSiteName} onChange={e => setWorkSiteName(e.target.value)} placeholder="e.g. Grantham track renewal" autoFocus /></label>
               <label>Work-site reference<input value={workRef} onChange={e => setWorkRef(e.target.value)} placeholder="e.g. WS-2026-014" /></label>
               <label>Possession status<select value={possessionStatus} onChange={e => setPossessionStatus(e.target.value)}><option>Planning</option><option>Briefing</option><option>In progress</option><option>Suspended</option><option>Complete</option><option>Cancelled</option></select></label>
+              <label>Assign PICOP<select value={assignedPicopEmail} onChange={e => { setAssignedPicopEmail(e.target.value); setPicopResponse("pending"); }}><option value="">Select a PICOP…</option>{picopOptions.map(profile => <option key={profile.user_id} value={profile.email}>{profile.display_name ? profile.display_name + " — " : ""}{profile.email}</option>)}</select></label>
               <div className="possession-time-row">
                 <label>Exact start date &amp; time<input type="datetime-local" value={plannedStartAt} onChange={e => { setPlannedStartAt(e.target.value); setSelectedCalendarDate(e.target.value.slice(0,10)); }} required /></label>
                 <label>Exact finish date &amp; time<input type="datetime-local" value={plannedEndAt} onChange={e => setPlannedEndAt(e.target.value)} required /></label>
