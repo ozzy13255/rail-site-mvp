@@ -561,15 +561,15 @@ export default function App() {
         planned_end_at: plannedEndAt ? new Date(plannedEndAt).toISOString() : null,
         updated_at: new Date().toISOString()
       };
-      const request = worksiteId
-        ? supabase.from("worksites").update(payload).eq("id", worksiteId).eq("company_id", membership.company_id).select("id").single()
-        : supabase.from("worksites").insert(payload).select("id").single();
-      const { data, error } = await request;
+      const { data, error } = await supabase.rpc("save_worksite", {
+        p_payload: payload,
+        p_worksite_id: worksiteId || null
+      });
       if (error) {
         setToast("Work site was not saved: " + error.message);
         return;
       }
-      const savedWorksiteId = data.id;
+      const savedWorksiteId = data;
 
       const boardTasks = tasks.filter(task => !task.demo);
       let savedBoardCount = 0;
