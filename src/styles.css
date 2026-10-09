@@ -419,3 +419,29 @@ body{background:#0b1420;color:#e8eef4}
 .line-block-events .btn{margin-top:8px}
 .line-block-events input[type=file]{font-size:12px}
 @media(max-width:800px){.line-blockages-page{padding:14px}.line-block-form-grid{grid-template-columns:1fr}.line-block-events{grid-template-columns:1fr}.line-block-card-top{flex-direction:column}.line-block-card-top small{text-align:left}}
+
+/* Line blockages: high-contrast, accessible light workspace */
+.line-blockages-page{color:#172338!important;background:#f3f6fa!important;border-radius:16px}
+.line-blockages-page .dashboard-heading h1,
+.line-blockages-page h2,.line-blockages-page h3,
+.line-blockages-page strong,.line-blockages-page label{color:#172338!important}
+.line-blockages-page p,.line-blockages-page small{color:#475569}
+.line-blockages-page .line-block-create,
+.line-blockages-page .line-block-card,
+.line-blockages-page .line-block-events>div,
+.line-blockages-page .line-block-empty{background:#fff!important;color:#172338!important;border-color:#cbd5e1!important}
+.line-blockages-page .line-block-create input,
+.line-blockages-page .line-block-create textarea,
+.line-blockages-page .line-block-events input{background:#fff!important;color:#111827!important;border:1px solid #64748b!important}
+.line-blockages-page input::placeholder,
+.line-blockages-page textarea::placeholder{color:#64748b!important;opacity:1}
+.line-blockages-page .line-block-safety{background:#fff7df!important;color:#563b00!important;border-color:#d9ad43!important}
+.line-blockages-page .line-block-safety strong{color:#563b00!important}
+.line-blockages-page .line-block-notice{background:#e8f7ee!important;color:#14532d!important;border-color:#65b889!important}
+.line-blockages-page .line-block-notice strong{color:#14532d!important}
+.line-blockages-page .line-block-status{background:#dbeafe!important;color:#1e3a8a!important}
+.line-blockages-page .btn-primary{background:#075fc8!important;color:#fff!important;border:1px solid #075fc8!important}
+.line-blockages-page .btn-secondary{background:#fff!important;color:#172338!important;border:1px solid #64748b!important}
+.line-blockages-page .btn:focus-visible,
+.line-blockages-page input:focus-visible,
+.line-blockages-page textarea:focus-visible{outline:3px solid #f59e0b!important;outline-offset:2px}
