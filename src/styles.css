@@ -186,3 +186,39 @@ body{background:#0b1420;color:#e8eef4}
 .calendar-legend span:last-child{margin-left:auto}
 @media(max-width:900px){.calendar-heading{align-items:flex-start;flex-direction:column}.calendar-actions{width:100%}.calendar-actions .btn-primary{margin-left:auto}.calendar-day{min-height:85px;padding:4px}.calendar-event{padding:4px}.calendar-event span{font-size:8px}.calendar-event small{font-size:7px}}
 @media(max-width:560px){.calendar-heading{padding:14px}.calendar-heading h2{font-size:18px}.calendar-actions{gap:5px}.calendar-actions strong{flex:1;min-width:100px;font-size:11px}.calendar-actions .btn{padding:8px 10px;font-size:10px}.calendar-weekdays>div{font-size:8px;padding:8px 2px}.calendar-day{min-height:66px;padding:3px}.calendar-day-number{width:22px;height:22px;font-size:9px}.calendar-day-events{gap:3px}.calendar-event{padding:3px;border-left-width:2px}.calendar-event span{font-size:7px}.calendar-event small{display:none}.calendar-legend{gap:9px;padding:10px}.calendar-legend span{font-size:8px}.calendar-legend span:last-child{margin-left:0}}
+
+
+/* Possession editor modal and in-editor marker placement */
+.calendar-add-day{display:block;margin:4px 0 0 2px;border:0;border-radius:4px;background:transparent;color:#7896aa;padding:3px 4px;font-size:8px;font-weight:800;cursor:pointer;text-align:left}
+.calendar-add-day:hover{background:#1b3448;color:#e5b35a}
+.possession-modal-backdrop{position:fixed;inset:0;z-index:3000;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(3,9,15,.82);backdrop-filter:blur(5px)}
+.possession-modal{display:flex;flex-direction:column;width:min(100%,980px);max-height:94vh;overflow:hidden;background:#0f1e2b;border:1px solid #385064;border-radius:14px;box-shadow:0 25px 90px #0009;color:#e8eef4}
+.possession-modal-header{display:flex;align-items:flex-start;justify-content:space-between;gap:15px;padding:19px 22px;background:linear-gradient(115deg,#183349,#101e2b);border-bottom:1px solid #2d4356}
+.possession-modal-header h2{font:800 22px Manrope,sans-serif;letter-spacing:-.5px;color:#f4f7fa;margin:5px 0}
+.possession-modal-header p{margin:0;color:#9cb0c0;font-size:11px}
+.calendar-close{width:34px;height:34px;flex-shrink:0;border:1px solid #3a5265;border-radius:8px;background:#142738;color:#e9f0f5;font-size:24px;line-height:1;cursor:pointer}
+.calendar-close:hover{background:#243e52}
+.possession-modal-body{padding:18px 22px;overflow:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:17px}
+.possession-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.possession-form-grid label,.possession-time-row label{display:flex;flex-direction:column;gap:6px;min-width:0;color:#a9bdcc;font-size:10px;font-weight:700}
+.possession-form-grid input,.possession-form-grid select,.possession-time-row input{width:100%;min-width:0;box-sizing:border-box;border:1px solid #354d61;border-radius:6px;background:#0b1824;color:#f0f5f8;color-scheme:dark;padding:11px 10px;font-size:12px;outline-color:#d6a14a}
+.possession-time-row{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.possession-mileage-form,.possession-map-editor{padding:14px;background:#122333;border:1px solid #2c4255;border-radius:9px}
+.modal-section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.modal-section-heading strong,.modal-section-heading small{display:block}
+.modal-section-heading strong{font-size:12px;color:#edf3f7}
+.modal-section-heading small{font-size:10px;color:#91a6b7;line-height:1.5;margin-top:4px}
+.possession-form-grid.two{margin-bottom:10px}
+.possession-mini-map{height:310px;overflow:hidden;border:1px solid #344b5d;border-radius:8px;background:#0c1925}
+.possession-mini-map .leaflet-container{height:100%;width:100%;background:#dce3e8}
+.map-safety-note{margin:10px 0 0;padding:9px 10px;border:1px solid #65502e;border-radius:6px;background:#2c281f;color:#d6c49e;font-size:9px;line-height:1.55}
+.modal-board-list{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.modal-board-list>div{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;border:1px solid #2e4558;border-radius:6px;background:#0f1e2b}
+.modal-board-list strong,.modal-board-list small{display:block}
+.modal-board-list strong{font-size:10px;color:#e7eef4}
+.modal-board-list small{font-size:9px;color:#8ea5b6;margin-top:3px}
+.modal-board-list button{border:1px solid #654046;border-radius:5px;background:#332326;color:#ffb4b4;padding:6px 8px;font-size:9px;font-weight:700}
+.possession-modal-footer{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 22px;border-top:1px solid #2b4052;background:#101f2d}
+.possession-modal-footer>span{font-size:9px;color:#839bad;line-height:1.4}
+.possession-modal-footer>div{display:flex;gap:8px;flex-shrink:0}
+@media(max-width:650px){.possession-modal-backdrop{padding:0;align-items:stretch}.possession-modal{width:100%;max-height:100dvh;border-radius:0;border-left:0;border-right:0}.possession-modal-header{padding:15px}.possession-modal-header h2{font-size:19px}.possession-modal-body{padding:13px;gap:12px}.possession-form-grid{grid-template-columns:1fr}.possession-time-row{grid-column:auto;grid-template-columns:1fr}.possession-mileage-form,.possession-map-editor{padding:10px}.possession-mini-map{height:270px}.modal-section-heading{align-items:flex-start}.modal-section-heading small{max-width:290px}.possession-modal-footer{padding:12px;align-items:flex-start;flex-direction:column}.possession-modal-footer>div{width:100%}.possession-modal-footer>div .btn{flex:1}.calendar-add-day{font-size:7px;padding:2px}}
