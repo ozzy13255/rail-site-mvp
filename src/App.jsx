@@ -427,6 +427,70 @@ export default function App() {
     }
   };
 
+  const cancelWorksite = async () => {
+    if (!worksiteId || !supabase || !membership?.company_id) return;
+    if (!window.confirm(`Cancel work site "${workSiteName}"? It will remain on the calendar in red as CANCELLED.`)) return;
+    setSiteSaving(true);
+    try {
+      const { error } = await supabase.from("worksites").update({
+        possession_status: "Cancelled",
+        status: "cancelled",
+        updated_at: new Date().toISOString()
+      }).eq("id", worksiteId).eq("company_id", membership.company_id);
+      if (error) {
+        setToast("Could not cancel work site: " + error.message);
+        return;
+      }
+      setPossessionStatus("Cancelled");
+      const { data } = await supabase.from("worksites")
+        .select("id, name, reference, description, boundary, status, possession_status, planned_start_at, planned_end_at, elr, route_reference, start_miles, start_chains, end_miles, end_chains, created_at")
+        .eq("company_id", membership.company_id).order("created_at", { ascending: false });
+      if (data) setCalendarWorksites(data);
+      setPossessionEditorOpen(false);
+      setToast("Work site cancelled. It remains on the calendar in red.");
+      window.setTimeout(() => setToast(""), 4500);
+    } finally {
+      setSiteSaving(false);
+    }
+  };
+
+  const deleteWorksite = async () => {
+    if (!worksiteId || !supabase || !membership?.company_id) return;
+    if (!window.confirm(`Permanently delete work site "${workSiteName}" and its marker boards? This cannot be undone.`)) return;
+    setSiteSaving(true);
+    try {
+      // Remove child marker boards first so deletion also works when the database
+      // relationship does not cascade automatically.
+      const { error: boardsError } = await supabase.from("marker_boards").delete().eq("worksite_id", worksiteId);
+      if (boardsError) {
+        setToast("Could not delete marker boards for this work site: " + boardsError.message);
+        return;
+      }
+      const { error } = await supabase.from("worksites").delete()
+        .eq("id", worksiteId).eq("company_id", membership.company_id);
+      if (error) {
+        setToast("Could not delete work site: " + error.message);
+        return;
+      }
+      const { data, error: refreshError } = await supabase.from("worksites")
+        .select("id, name, reference, description, boundary, status, possession_status, planned_start_at, planned_end_at, elr, route_reference, start_miles, start_chains, end_miles, end_chains, created_at")
+        .eq("company_id", membership.company_id).order("created_at", { ascending: false });
+      if (!refreshError && data) setCalendarWorksites(data);
+      setWorksiteId(null);
+      setWorkSiteName("");
+      setWorkRef("");
+      setWorkSite([]);
+      setTasks([]);
+      setSelectedId("");
+      setPhotoPreviews({});
+      setPossessionEditorOpen(false);
+      setToast("Work site and its marker boards deleted.");
+      window.setTimeout(() => setToast(""), 4500);
+    } finally {
+      setSiteSaving(false);
+    }
+  };
+
   const deleteSelectedBoard = async () => {
     if (!selected) return;
     const boardName = selected.label || selected.id;
@@ -657,7 +721,7 @@ export default function App() {
               <div className="calendar-day-events">
                 {entries.map(item => <button key={item.id} className={`calendar-event event-${statusClass(item.possession_status || item.status || "Planning")}`} onClick={() => openPossession(item)} title={item.name}>
                   <span>{item.name || "Untitled possession"}</span>
-                  <small>{item.elr || "ELR TBC"}{item.start_miles !== null && item.start_miles !== undefined ? ` · ${item.start_miles}m ${String(item.start_chains ?? 0).padStart(2,"0")}ch` : ""}</small>
+                  <small>{(item.possession_status || item.status || "").toLowerCase() === "cancelled" ? "CANCELLED · " : ""}{item.elr || "ELR TBC"}{item.start_miles !== null && item.start_miles !== undefined ? ` · ${item.start_miles}m ${String(item.start_chains ?? 0).padStart(2,"0")}ch` : ""}</small>
                 </button>)}
               </div>
             </div>;
@@ -714,7 +778,7 @@ export default function App() {
               {tasks.filter(task => !task.demo).length > 0 && <div className="modal-board-list">{tasks.filter(task => !task.demo).map(task => <div className="modal-board-row" key={task.id}><div className="modal-board-row-heading"><span><strong>{task.label}</strong><small>Board reference: {task.elr || elr || "ELR TBC"} / {task.routeReference || routeReference || "route TBC"}</small></span><button type="button" onClick={() => setTasks(prev => prev.filter(item => item.id !== task.id))} aria-label={`Remove ${task.label}`}>Remove</button></div><div className="modal-board-mileage"><label>ELR<input value={task.elr || elr} onChange={e => setTasks(prev => prev.map(item => item.id === task.id ? {...item, elr:e.target.value.toUpperCase()} : item))} placeholder="ELR" /></label><label>Route<input value={task.routeReference || routeReference} onChange={e => setTasks(prev => prev.map(item => item.id === task.id ? {...item, routeReference:e.target.value} : item))} placeholder="Route / line" /></label><label>Miles<input type="number" min="0" step="1" value={task.mileageMiles} onChange={e => setTasks(prev => prev.map(item => item.id === task.id ? {...item, mileageMiles:e.target.value} : item))} placeholder="Miles" /></label><label>Chains<input type="number" min="0" max="79" step="1" value={task.mileageChains} onChange={e => setTasks(prev => prev.map(item => item.id === task.id ? {...item, mileageChains:e.target.value} : item))} placeholder="00–79" /></label></div></div>)}</div>}
             </div>
           </div>
-          <div className="possession-modal-footer"><span>Changes are saved to the shared company workspace.</span><div><button className="btn btn-secondary" type="button" onClick={() => { setPossessionEditorOpen(false); setEditorPlacingBoard(false); }}>Cancel</button><button className="btn btn-primary" type="button" onClick={saveWorksite} disabled={siteSaving || siteLoading}>{siteSaving ? "Saving…" : "Save possession"}</button></div></div>
+          <div className="possession-modal-footer"><span>Changes are saved to the shared company workspace.</span><div className="possession-footer-actions">{worksiteId && possessionStatus !== "Cancelled" && <button className="btn btn-danger" type="button" onClick={cancelWorksite} disabled={siteSaving}>Cancel work site</button>}{worksiteId && <button className="btn btn-danger-outline" type="button" onClick={deleteWorksite} disabled={siteSaving}>Delete work site</button>}<button className="btn btn-secondary" type="button" onClick={() => { setPossessionEditorOpen(false); setEditorPlacingBoard(false); }}>Close</button><button className="btn btn-primary" type="button" onClick={saveWorksite} disabled={siteSaving || siteLoading}>{siteSaving ? "Saving…" : "Save possession"}</button></div></div>
         </section>
       </div>}
       </>}
