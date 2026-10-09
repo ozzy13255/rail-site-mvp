@@ -16,39 +16,6 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
-function FirstLoginPasswordScreen({ email, onChangePassword }) {
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
-  const submit = async (event) => {
-    event.preventDefault();
-    setError("");
-    if (password.length < 12) { setError("Choose a password with at least 12 characters."); return; }
-    if (password !== confirmPassword) { setError("The passwords do not match."); return; }
-    setBusy(true);
-    try { await onChangePassword(password); setDone(true); }
-    catch (err) { setError(err?.message || "Could not change your password. Please try again."); }
-    finally { setBusy(false); }
-  };
-  return <main className="login-page"><section className="login-card">
-    <div className="login-brand-mark">R</div><div className="login-eyebrow">FIRST SIGN-IN SECURITY</div>
-    <h1>Set your own password</h1>
-    <p className="login-intro">This account was created with a temporary password. Choose a new password before you can access RailSite.</p>
-    <div className="login-message">Signed in as {email}</div>
-    {error && <div className="login-alert" role="alert">{error}</div>}
-    {done ? <div className="login-message">Password changed. Opening RailSite…</div> : <form onSubmit={submit}>
-      <label className="login-label" htmlFor="new-password">New password</label>
-      <input id="new-password" className="login-input" type="password" autoComplete="new-password" minLength={12} required value={password} onChange={e => setPassword(e.target.value)} placeholder="At least 12 characters"/>
-      <label className="login-label" htmlFor="confirm-new-password">Confirm new password</label>
-      <input id="confirm-new-password" className="login-input" type="password" autoComplete="new-password" minLength={12} required value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Enter it again"/>
-      <button className="login-submit" type="submit" disabled={busy}>{busy ? "Updating password…" : "Set new password"}</button>
-    </form>}
-    <div className="login-footer"><span className="online-dot"/> Your temporary password will stop working after this change.</div>
-  </section></main>;
-}
-
 function LoginScreen({ configured, loading, error, onSignIn, onResetPassword }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -168,8 +135,6 @@ function MapClickHandler({ enabled, onSelect }) {
 export default function App() {
   const [session, setSession] = useState(null);
   const [membership, setMembership] = useState(null);
-  const [mustChangePassword, setMustChangePassword] = useState(false);
-  const [profileTempPassword, setProfileTempPassword] = useState("");
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState("");
   const [tasks, setTasks] = useState(initialTasks);
@@ -235,13 +200,6 @@ export default function App() {
       if (active) {
         setSession(currentSession);
         setAuthError("");
-        if (currentSession.user?.user_metadata?.must_change_password === true) {
-          setMustChangePassword(true);
-          setMembership(null);
-          setAuthLoading(false);
-          return;
-        }
-        setMustChangePassword(false);
       }
       const { data, error } = await supabase
         .from("company_members")
@@ -280,27 +238,6 @@ export default function App() {
     if (!supabase) throw new Error("Sign-in is not configured for this deployment.");
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (error) throw new Error(error.message === "Invalid login credentials" ? "Email or password is incorrect." : error.message);
-  };
-
-  const handleFirstLoginPasswordChange = async (password) => {
-    if (!supabase) throw new Error("Password changes are not configured.");
-    const currentMetadata = session?.user?.user_metadata || {};
-    const { error } = await supabase.auth.updateUser({
-      password,
-      data: { ...currentMetadata, must_change_password: false }
-    });
-    if (error) throw error;
-    setMustChangePassword(false);
-    setAuthError("");
-    const { data: current } = await supabase.auth.getSession();
-    if (current?.session) {
-      setSession(current.session);
-      const { data: member, error: memberError } = await supabase.from("company_members")
-        .select("company_id, role, companies(name)").eq("user_id", current.session.user.id).maybeSingle();
-      if (memberError || !member) throw new Error("Password changed, but your RailSite company access could not be loaded. Contact the owner.");
-      setMembership(member);
-      setActivePage(member.role === "member" ? "boards" : "overview");
-    }
   };
 
   const handleResetPassword = async (email) => {
@@ -393,12 +330,12 @@ export default function App() {
     setProfileSaving(true);
     try {
       const { data, error } = await supabase.functions.invoke("create-profile", {
-        body: { email: profileEmail.trim(), display_name: profileName.trim(), role: profileRole, company_id: membership.company_id, temp_password: profileTempPassword }
+        body: { email: profileEmail.trim(), display_name: profileName.trim(), role: profileRole, company_id: membership.company_id }
       });
       if (error) throw new Error(data?.error || error.message || "Could not create profile.");
       if (data?.error) throw new Error(data.error);
       setToast(data?.message || "Profile created and invitation sent.");
-      setProfileName(""); setProfileEmail(""); setProfileRole("planner"); setProfileTempPassword("");
+      setProfileName(""); setProfileEmail(""); setProfileRole("planner");
       const { data: refreshed, error: refreshError } = await supabase.from("company_members")
         .select("user_id, role, email, display_name, created_at")
         .eq("company_id", membership.company_id).order("created_at", { ascending: true });
@@ -946,8 +883,7 @@ export default function App() {
   const count = (status) => tasks.filter(t => t.status === status).length;
 
   if (authLoading) return <main className="login-page"><section className="login-card"><div className="login-brand-mark">R</div><h1>Opening RailSite…</h1><p className="login-intro">Checking your secure session.</p></section></main>;
-  if (session && mustChangePassword) return <FirstLoginPasswordScreen email={session.user.email || ""} onChangePassword={handleFirstLoginPasswordChange} />;
-  if (!session || !membership) return <LoginScreen configured={Boolean(supabase)} loading={authLoading} error={authError} onSignIn={handleSignIn} onResetPassword={handleResetPassword} />;
+   if (!session || !membership) return <LoginScreen configured={Boolean(supabase)} loading={authLoading} error={authError} onSignIn={handleSignIn} onResetPassword={handleResetPassword} />;
 
   return <div className={"app-shell " + (sidebarCollapsed ? "sidebar-collapsed" : "")}>
     <header className="topbar">
@@ -1235,23 +1171,21 @@ export default function App() {
         <div className="panel-bottom-note"><span className="lock-icon">▣</span> Demo data only · Changes are not saved between reloads</div>
       </aside>}
       {activePage === "profiles" && ["owner", "admin"].includes(membership.role) && <section className="profiles-page">
-        <div className="dashboard-heading"><div><div className="eyebrow">COMPANY ACCESS</div><h1>Manage profiles</h1><p>Create accounts, set a temporary password, and assign the correct RailSite role. Users must replace the temporary password at first sign-in.</p></div><div className="dashboard-live"><span className="online-dot"/><span>{companyProfiles.length} PROFILES</span></div></div>
+        <div className="dashboard-heading"><div><div className="eyebrow">COMPANY ACCESS</div><h1>Manage profiles</h1><p>Create accounts and assign the correct RailSite role. New users receive an invitation email to set their password.</p></div><div className="dashboard-live"><span className="online-dot"/><span>{companyProfiles.length} PROFILES</span></div></div>
         <div className="profiles-layout">
           <form className="profile-create-card" onSubmit={createProfile}>
-            <div className="profile-card-heading"><span className="overview-icon">＋</span><div><h2>Create a profile</h2><p>Give the temporary password to the user securely</p></div></div>
+            <div className="profile-card-heading"><span className="overview-icon">＋</span><div><h2>Create a profile</h2><p>Invitation sent to the user's email address</p></div></div>
             <label>Full name<input value={profileName} onChange={e => setProfileName(e.target.value)} required placeholder="e.g. Jamie Taylor" autoComplete="name"/></label>
             <label>Work email address<input type="email" value={profileEmail} onChange={e => setProfileEmail(e.target.value)} required placeholder="name@company.co.uk" autoComplete="email"/></label>
-            <label>Temporary password<input type="password" value={profileTempPassword} onChange={e => setProfileTempPassword(e.target.value)} required minLength={12} autoComplete="new-password" placeholder="At least 12 characters"/></label>
-            <small className="profile-password-help">Use a unique temporary password for each account. RailSite will force the user to change it before access.</small>
-            <label>Profile type<select value={profileRole} onChange={e => setProfileRole(e.target.value)}><option value="planner">Planner — possessions and calendar</option><option value="picop">PICOP — acceptance and board verification</option><option value="member">Board-placement user — assigned tasks</option></select></label>
+             <label>Profile type<select value={profileRole} onChange={e => setProfileRole(e.target.value)}><option value="planner">Planner — possessions and calendar</option><option value="picop">PICOP — acceptance and board verification</option><option value="member">Board-placement user — assigned tasks</option></select></label>
             <div className="profile-role-note">{profileRole === "planner" ? "Can create, schedule, edit, cancel and delete work sites." : profileRole === "picop" ? "Can review assigned possessions and manage marker-board verification." : "Can view assigned board tasks and submit placement evidence."}</div>
-            <button className="btn btn-primary btn-full" type="submit" disabled={profileSaving}>{profileSaving ? "Creating account…" : "Create account"}</button>
+            <button className="btn btn-primary btn-full" type="submit" disabled={profileSaving}>{profileSaving ? "Creating profile…" : "Create profile & send invitation"}</button>
           </form>
           <section className="profile-list-card"><div className="profile-card-heading"><span className="overview-icon">♙</span><div><h2>Company profiles</h2><p>Role assignments for this workspace</p></div></div>
             {profilesLoading ? <p className="profile-empty">Loading profiles…</p> : companyProfiles.length === 0 ? <p className="profile-empty">No profiles found.</p> : <div className="profile-list">{companyProfiles.map(profile => <div className="profile-row" key={profile.user_id}><div className="profile-avatar">{(profile.display_name || profile.email || "?").slice(0,1).toUpperCase()}</div><div className="profile-row-main"><strong>{profile.display_name || profile.email || "Company user"}</strong><small>{profile.email || "Email not recorded"}</small></div><span className={`profile-role-badge role-${profile.role}`}>{profile.role === "member" ? "BOARD USER" : profile.role.toUpperCase()}</span></div>)}</div>}
           </section>
         </div>
-        <p className="profile-security-note"><strong>Access control:</strong> Temporary passwords are set by an owner/admin and must be changed at first sign-in. Share each temporary password privately, never in a group chat.</p>
+        <p className="profile-security-note"><strong>Access control:</strong> Profile invitations are created by a protected server function. Do not share passwords; each user sets their own password from the invitation.</p>
       </section>}
       </main>
     </div>
