@@ -7,9 +7,9 @@ import "leaflet-draw/dist/leaflet.draw.css";
 
 // Demo records only. Replace with authenticated Supabase records before operational use.
 const initialTasks = [
-  { id: "MB-01", label: "Marker board 1", assignee: "Alex Morgan", status: "Assigned", position: [52.9127, -0.6424], notes: "Confirm access point before travelling." },
-  { id: "MB-02", label: "Marker board 2", assignee: "Jamie Taylor", status: "Photo submitted", position: [52.9150, -0.6358], notes: "Upload a clear photo showing the board in position." },
-  { id: "MB-03", label: "Marker board 3", assignee: "Unassigned", status: "Unassigned", position: [52.9170, -0.6288], notes: "" }
+  { id: "MB-01", label: "Marker board 1", assignee: "Alex Morgan", status: "Assigned", position: [52.9127, -0.6424], elr: "", routeReference: "", mileageMiles: "", mileageChains: "", notes: "Confirm access point before travelling." },
+  { id: "MB-02", label: "Marker board 2", assignee: "Jamie Taylor", status: "Photo submitted", position: [52.9150, -0.6358], elr: "", routeReference: "", mileageMiles: "", mileageChains: "", notes: "Upload a clear photo showing the board in position." },
+  { id: "MB-03", label: "Marker board 3", assignee: "Unassigned", status: "Unassigned", position: [52.9170, -0.6288], elr: "", routeReference: "", mileageMiles: "", mileageChains: "", notes: "" }
 ];
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -315,7 +315,7 @@ export default function App() {
   const choosePin = React.useCallback((position) => {
     if (!placingPin) return;
     const id = `MB-${String(tasks.length + 1).padStart(2, "0")}`;
-    const task = { id, label: `Marker board ${tasks.length + 1}`, assignee: "Unassigned", status: "Unassigned", position, notes: "" };
+    const task = { id, label: `Marker board ${tasks.length + 1}`, assignee: "Unassigned", status: "Unassigned", position, elr, routeReference, mileageMiles: "", mileageChains: "", notes: "" };
     setTasks(prev => [...prev, task]);
     setSelectedId(id);
     setPlacingPin(false);
@@ -473,6 +473,18 @@ export default function App() {
             <select id="assignee" value={selected.assignee} onChange={e => updateTask(selected.id, { assignee: e.target.value, status: e.target.value === "Unassigned" ? "Unassigned" : (selected.status === "Unassigned" ? "Assigned" : selected.status) })}>
               <option>Unassigned</option><option>Alex Morgan</option><option>Jamie Taylor</option><option>Sam Patel</option><option>Riley James</option>
             </select>
+          </div>
+          <div className="marker-mileage-card">
+            <div className="eyebrow">BOARD LOCATION REFERENCE</div>
+            <div className="marker-reference-fields">
+              <label>ELR<input value={selected.elr || ""} onChange={e => updateTask(selected.id, { elr: e.target.value.toUpperCase() })} placeholder="ELR"/></label>
+              <label>Route / line<input value={selected.routeReference || ""} onChange={e => updateTask(selected.id, { routeReference: e.target.value })} placeholder="Route or line"/></label>
+            </div>
+            <div className="marker-chain-fields">
+              <label>Miles<input type="number" min="0" step="1" value={selected.mileageMiles ?? ""} onChange={e => updateTask(selected.id, { mileageMiles: e.target.value })} placeholder="0"/></label>
+              <label>Chains (0–79)<input type="number" min="0" max="79" step="1" value={selected.mileageChains ?? ""} onChange={e => updateTask(selected.id, { mileageChains: e.target.value })} placeholder="00"/></label>
+            </div>
+            <small>Use the possession mileage reference. The map pin is not automatically derived from mileage yet.</small>
           </div>
           <div className="field">
             <label htmlFor="notes">Instructions</label>
