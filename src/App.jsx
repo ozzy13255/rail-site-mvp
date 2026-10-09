@@ -144,6 +144,15 @@ export default function App() {
   const [gpsError, setGpsError] = useState("");
   const [workSiteName, setWorkSiteName] = useState("Grantham work site");
   const [workRef, setWorkRef] = useState("WS-2026-001");
+  const [worksiteId, setWorksiteId] = useState(null);
+  const [elr, setElr] = useState("");
+  const [routeReference, setRouteReference] = useState("");
+  const [startMiles, setStartMiles] = useState("");
+  const [startChains, setStartChains] = useState("");
+  const [endMiles, setEndMiles] = useState("");
+  const [endChains, setEndChains] = useState("");
+  const [siteLoading, setSiteLoading] = useState(false);
+  const [siteSaving, setSiteSaving] = useState(false);
   const [filter, setFilter] = useState("All tasks");
   const [toast, setToast] = useState("");
   const [photoPreviews, setPhotoPreviews] = useState({});
@@ -212,6 +221,86 @@ export default function App() {
       redirectTo: window.location.origin
     });
     if (error) throw error;
+  };
+
+  useEffect(() => {
+    if (!supabase || !membership?.company_id) return;
+    let active = true;
+    const loadWorksite = async () => {
+      setSiteLoading(true);
+      const { data, error } = await supabase
+        .from("worksites")
+        .select("id, name, reference, description, boundary, status, elr, route_reference, start_miles, start_chains, end_miles, end_chains")
+        .eq("company_id", membership.company_id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!active) return;
+      if (error) {
+        setToast("Could not load saved work-site details. Check company permissions.");
+      } else if (data) {
+        setWorksiteId(data.id);
+        setWorkSiteName(data.name || "");
+        setWorkRef(data.reference || "");
+        setWorkSite(Array.isArray(data.boundary) ? data.boundary : []);
+        setElr(data.elr || "");
+        setRouteReference(data.route_reference || "");
+        setStartMiles(data.start_miles ?? "");
+        setStartChains(data.start_chains ?? "");
+        setEndMiles(data.end_miles ?? "");
+        setEndChains(data.end_chains ?? "");
+      }
+      setSiteLoading(false);
+    };
+    void loadWorksite();
+    return () => { active = false; };
+  }, [membership?.company_id]);
+
+  const saveWorksite = async () => {
+    if (!supabase || !membership?.company_id) {
+      setToast("You must be signed in to save a work site.");
+      return;
+    }
+    if (!workSiteName.trim()) {
+      setToast("Enter a work-site name before saving.");
+      return;
+    }
+    if (startChains !== "" && (Number(startChains) < 0 || Number(startChains) > 79) ||
+        endChains !== "" && (Number(endChains) < 0 || Number(endChains) > 79)) {
+      setToast("Chains must be between 0 and 79.");
+      return;
+    }
+    if (startMiles !== "" && endMiles !== "" && startChains !== "" && endChains !== "" &&
+        Number(endMiles) * 80 + Number(endChains) < Number(startMiles) * 80 + Number(startChains)) {
+      setToast("The end mileage must not be before the start mileage.");
+      return;
+    }
+    setSiteSaving(true);
+    const payload = {
+      name: workSiteName.trim(),
+      reference: workRef.trim() || null,
+      company_id: membership.company_id,
+      boundary: workSite || [],
+      elr: elr.trim().toUpperCase() || null,
+      route_reference: routeReference.trim() || null,
+      start_miles: startMiles === "" ? null : Number(startMiles),
+      start_chains: startChains === "" ? null : Number(startChains),
+      end_miles: endMiles === "" ? null : Number(endMiles),
+      end_chains: endChains === "" ? null : Number(endChains),
+      updated_at: new Date().toISOString()
+    };
+    const request = worksiteId
+      ? supabase.from("worksites").update(payload).eq("id", worksiteId).eq("company_id", membership.company_id).select("id").single()
+      : supabase.from("worksites").insert(payload).select("id").single();
+    const { data, error } = await request;
+    setSiteSaving(false);
+    if (error) {
+      setToast("Work site was not saved: " + error.message);
+      return;
+    }
+    setWorksiteId(data.id);
+    setToast("Work-site details saved to RailSite.");
+    window.setTimeout(() => setToast(""), 4000);
   };
 
   const handleSignOut = async () => {
@@ -289,13 +378,28 @@ export default function App() {
           <div className="site-title-group">
             <div className="eyebrow">ACTIVE WORK SITE</div>
             <input className="site-name" value={workSiteName} onChange={e => setWorkSiteName(e.target.value)} aria-label="Work site name" />
-            <div className="site-ref">{workRef} <span className="separator">•</span> Draft plan</div>
+            <div className="site-ref"><input value={workRef} onChange={e => setWorkRef(e.target.value)} aria-label="Work-site reference" placeholder="Work-site reference"/> <span className="separator">•</span> {siteLoading ? "Loading saved site…" : worksiteId ? "Saved work site" : "New work-site draft"}</div>
           </div>
           <div className="toolbar-actions">
             <button className={`btn ${placingPin ? "btn-warning" : "btn-secondary"}`} onClick={() => setPlacingPin(v => !v)}>{placingPin ? "Tap map to place pin" : "+ Place board pin"}</button>
-            <button className="btn btn-primary" onClick={() => { setToast("Save is a demo action. Connect Supabase to persist this work site."); window.setTimeout(() => setToast(""), 3500); }}>Save work site</button>
+            <button className="btn btn-primary" onClick={saveWorksite} disabled={siteSaving || siteLoading}>{siteSaving ? "Saving…" : "Save work site"}</button>
           </div>
         </div>
+        <section className="rail-mileage-panel">
+          <div className="rail-mileage-heading">
+            <div><div className="eyebrow">RAILWAY LOCATION REFERENCE</div><strong>ELR + route mileage</strong></div>
+            <span className="mileage-format-tag">Miles &amp; chains</span>
+          </div>
+          <div className="rail-reference-fields">
+            <label>ELR<input value={elr} onChange={e => setElr(e.target.value.toUpperCase())} placeholder="e.g. GRAN" autoCapitalize="characters"/></label>
+            <label>Route / line reference<input value={routeReference} onChange={e => setRouteReference(e.target.value)} placeholder="Route or line name"/></label>
+          </div>
+          <div className="mileage-range-fields">
+            <div className="mileage-endpoint"><span>Start mileage</span><div><label>Miles<input type="number" min="0" step="1" value={startMiles} onChange={e => setStartMiles(e.target.value)} placeholder="0"/></label><label>Chains<input type="number" min="0" max="79" step="1" value={startChains} onChange={e => setStartChains(e.target.value)} placeholder="00"/></label></div></div>
+            <div className="mileage-endpoint"><span>End mileage</span><div><label>Miles<input type="number" min="0" step="1" value={endMiles} onChange={e => setEndMiles(e.target.value)} placeholder="0"/></label><label>Chains<input type="number" min="0" max="79" step="1" value={endChains} onChange={e => setEndChains(e.target.value)} placeholder="00"/></label></div></div>
+          </div>
+          <p>Enter the operational mileage used for the possession. Map geometry remains illustrative until matched to an approved track-mileage dataset.</p>
+        </section>
         <div className="map-wrap">
           <MapContainer center={[52.915, -0.636]} zoom={14} minZoom={5} maxZoom={19} zoomControl={true} scrollWheelZoom={true}>
             <LayersControl position="topright">
