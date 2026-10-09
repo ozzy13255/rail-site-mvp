@@ -488,7 +488,7 @@ export default function App() {
     const refreshCalendar = async () => {
       const { data, error } = await supabase
         .from("worksites")
-        .select("id, name, reference, description, boundary, status, possession_status, planned_start_at, planned_end_at, elr, route_reference, start_miles, start_chains, end_miles, end_chains, created_at")
+        .select("id, name, reference, description, boundary, status, possession_status, planned_start_at, planned_end_at, elr, route_reference, start_miles, start_chains, end_miles, end_chains, assigned_picop_email, picop_response, picop_response_at, board_placement_requested_at, activated_at, created_at")
         .eq("company_id", membership.company_id)
         .order("created_at", { ascending: false });
       if (active && !error && data) setCalendarWorksites(data);
@@ -1015,7 +1015,7 @@ export default function App() {
               {["owner", "admin", "planner"].includes(membership.role) && <button className="calendar-add-day" onClick={() => startNewPossession(dateKey)} aria-label={`Add possession on ${dayDate.toLocaleDateString("en-GB")}`}>+ Plan</button>}
               <div className="calendar-day-events">
                 {entries.map(item => <div key={item.id} className="calendar-event-wrap">
-                  <button className={`calendar-event event-${statusClass(item.possession_status || item.status || "Planning")}`} onClick={() => ["owner", "admin", "planner"].includes(membership.role) ? openPossession(item) : selectWorksiteTasks(item)} title={item.name}>
+                  <button className={`calendar-event ${String(item.possession_status || item.status || "").toLowerCase() === "cancelled" ? "event-cancelled" : item.picop_response === "accepted" ? "event-accepted" : item.picop_response === "declined" ? "event-declined" : "event-pending"}`} onClick={() => ["owner", "admin", "planner"].includes(membership.role) ? openPossession(item) : selectWorksiteTasks(item)} title={item.name}>
                     <span>{item.name || "Untitled possession"}</span>
                     <small>{(item.possession_status || item.status || "").toLowerCase() === "cancelled" ? "CANCELLED · " : ""}{item.elr || "ELR TBC"}{item.start_miles !== null && item.start_miles !== undefined ? ` · ${item.start_miles}m ${String(item.start_chains ?? 0).padStart(2,"0")}ch` : ""}{item.assigned_picop_email ? ` · PICOP: ${item.assigned_picop_email}` : " · PICOP unassigned"}{item.picop_response && item.picop_response !== "pending" ? ` · ${item.picop_response.toUpperCase()}` : ""}</small>
                   </button>
@@ -1027,7 +1027,7 @@ export default function App() {
             </div>;
           })}
         </div>
-        <div className="calendar-legend"><span><i className="legend-planning"/> Planning</span><span><i className="legend-active"/> In progress</span><span><i className="legend-complete"/> Complete</span><span>{calendarWorksites.length} saved possession(s)</span></div>
+        <div className="calendar-legend"><span><i className="legend-pending"/> Awaiting PICOP acceptance</span><span><i className="legend-accepted"/> PICOP accepted</span><span><i className="legend-cancelled"/> Cancelled</span><span>{calendarWorksites.length} saved possession(s)</span></div>
       </section>
       {possessionEditorOpen && ["owner", "admin", "planner"].includes(membership.role) && <div className="possession-modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) { setPossessionEditorOpen(false); setEditorPlacingBoard(false); } }}>
         <section className="possession-modal" role="dialog" aria-modal="true" aria-labelledby="possession-editor-title">
