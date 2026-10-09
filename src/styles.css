@@ -310,3 +310,8 @@ body{background:#0b1420;color:#e8eef4}
 .verification-notes-label{display:flex;flex-direction:column;gap:6px;color:#a9bdcc;font-size:10px;font-weight:700}
 .verification-notes-label textarea{width:100%;box-sizing:border-box;border:1px solid #354d61;border-radius:6px;background:#0b1824;color:#f0f5f8;padding:9px;font-size:11px;resize:vertical}
 .picop-event-actions .request-boards-button{flex-basis:100%;border-color:#735c36;background:#342c1e;color:#f1d18e}
+
+
+.worksite-task-picker{display:flex;flex-direction:column;gap:5px;margin-top:10px;color:#91a6b7;font-size:9px;font-weight:700}
+.worksite-task-picker select{max-width:100%;min-width:230px;border:1px solid #354d61;border-radius:6px;background:#0b1824;color:#edf3f7;padding:8px 9px;font-size:10px;color-scheme:dark}
+@media(max-width:560px){.worksite-task-picker select{min-width:0;width:100%}}
