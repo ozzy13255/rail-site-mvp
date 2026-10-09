@@ -222,3 +222,14 @@ body{background:#0b1420;color:#e8eef4}
 .possession-modal-footer>span{font-size:9px;color:#839bad;line-height:1.4}
 .possession-modal-footer>div{display:flex;gap:8px;flex-shrink:0}
 @media(max-width:650px){.possession-modal-backdrop{padding:0;align-items:stretch}.possession-modal{width:100%;max-height:100dvh;border-radius:0;border-left:0;border-right:0}.possession-modal-header{padding:15px}.possession-modal-header h2{font-size:19px}.possession-modal-body{padding:13px;gap:12px}.possession-form-grid{grid-template-columns:1fr}.possession-time-row{grid-column:auto;grid-template-columns:1fr}.possession-mileage-form,.possession-map-editor{padding:10px}.possession-mini-map{height:270px}.modal-section-heading{align-items:flex-start}.modal-section-heading small{max-width:290px}.possession-modal-footer{padding:12px;align-items:flex-start;flex-direction:column}.possession-modal-footer>div{width:100%}.possession-modal-footer>div .btn{flex:1}.calendar-add-day{font-size:7px;padding:2px}}
+
+
+.modal-board-list .modal-board-row{display:block;padding:10px;border:1px solid #2e4558;border-radius:7px;background:#0f1e2b}
+.modal-board-row-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:9px}
+.modal-board-row-heading strong,.modal-board-row-heading small{display:block}
+.modal-board-row-heading strong{font-size:10px;color:#e7eef4}
+.modal-board-row-heading small{font-size:9px;color:#8ea5b6;margin-top:3px;overflow-wrap:anywhere}
+.modal-board-mileage{display:grid;grid-template-columns:1.1fr 1.3fr .8fr .8fr;gap:7px}
+.modal-board-mileage label{display:flex;flex-direction:column;gap:4px;font-size:9px;font-weight:700;color:#9db2c1;min-width:0}
+.modal-board-mileage input{width:100%;min-width:0;box-sizing:border-box;border:1px solid #33495c;border-radius:5px;background:#0b1824;color:#edf3f7;padding:8px 7px;font-size:10px;color-scheme:dark}
+@media(max-width:560px){.modal-board-mileage{grid-template-columns:1fr 1fr}.modal-board-row-heading{align-items:flex-start}.modal-board-row-heading button{flex-shrink:0}}
