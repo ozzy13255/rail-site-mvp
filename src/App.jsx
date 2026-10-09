@@ -651,7 +651,7 @@ export default function App() {
       if (data?.length) {
         const loaded = data.map((row, index) => {
           const code = row.board_code || row.label || `MB-${String(index + 1).padStart(2, "0")}`;
-          const status = row.status === "verified" ? "Verified" : row.status === "placed" ? "Awaiting PICOP verification" : "Unassigned";
+          const status = row.status === "verified" ? "Verified" : row.status === "placed" ? "Awaiting PICOP verification" : row.assigned_email ? "Assigned" : "Unassigned";
           return {
             id: code,
             dbId: row.id,
@@ -831,6 +831,17 @@ export default function App() {
     setWorkflowBusyId("");
   };
 
+  const activateWorksite = async (item) => {
+    setWorkflowBusyId(item.id);
+    const { data, error } = await supabase.rpc("picop_activate_worksite", { p_worksite_id: item.id });
+    if (error) setToast("Work site cannot be activated yet: " + error.message);
+    else {
+      setCalendarWorksites(prev => prev.map(row => row.id === item.id ? { ...row, status: "active", possession_status: "In progress", activated_at: new Date().toISOString() } : row));
+      setToast(`Work site activated. ${data?.verified_boards ?? "All"} marker boards were verified.`);
+    }
+    setWorkflowBusyId("");
+  };
+
   const assignSelectedBoard = async (email) => {
     if (!selected.dbId) { setToast("Save this work site and board before assigning a user."); return; }
     setWorkflowBusyId(selected.id);
@@ -908,7 +919,7 @@ export default function App() {
                   </button>
                   {membership.role === "picop" && (item.picop_response || "pending") === "pending" && <div className="picop-event-actions"><button type="button" onClick={() => respondToPossession(item,"accepted")} disabled={workflowBusyId === item.id}>Accept</button><button type="button" onClick={() => respondToPossession(item,"declined")} disabled={workflowBusyId === item.id}>Decline</button></div>}
                   {membership.role === "picop" && item.picop_response === "accepted" && !item.board_placement_requested_at && <div className="picop-event-actions"><button type="button" className="request-boards-button" onClick={() => requestBoardPlacement(item)} disabled={workflowBusyId === item.id}>Request board placement</button></div>}
-                  {membership.role === "picop" && item.board_placement_requested_at && <div className="picop-event-note">Board placement requested</div>}
+                  {membership.role === "picop" && item.board_placement_requested_at && <div className="picop-event-actions"><button className="request-boards-button" type="button" onClick={() => activateWorksite(item)} disabled={workflowBusyId === item.id || item.activated_at}>{item.activated_at ? "Work site active" : workflowBusyId === item.id ? "Checking board evidence…" : "Activate work site"}</button></div>}
                 </div>)}
               </div>
             </div>;
