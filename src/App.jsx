@@ -225,6 +225,12 @@ export default function App() {
   const [notifications, setNotifications] = useState([]);
   const [workflowBusyId, setWorkflowBusyId] = useState("");
   const [overviewList, setOverviewList] = useState("");
+  const [picopAssignmentOpen, setPicopAssignmentOpen] = useState(false);
+  const [picopAssignmentWorksite, setPicopAssignmentWorksite] = useState(null);
+  const [picopAssignmentBoards, setPicopAssignmentBoards] = useState([]);
+  const [picopAssignmentLoading, setPicopAssignmentLoading] = useState(false);
+  const [picopAssignmentSaving, setPicopAssignmentSaving] = useState(false);
+  const [picopBoardAssignees, setPicopBoardAssignees] = useState({});
 
 
   useEffect(() => {
@@ -475,6 +481,50 @@ export default function App() {
       setToast(response === "accepted" ? "Possession accepted. Marker-board placement remains a separate step." : "Possession declined. The Planner has been notified.");
     }
     setWorkflowBusyId("");
+  };
+
+  const openPicopPossession = async (item) => {
+    if (!isAssignedToCurrentPicop(item)) { setToast("This possession is not assigned to your PICOP account."); return; }
+    setPicopAssignmentWorksite(item);
+    setPicopAssignmentBoards([]);
+    setPicopBoardAssignees({});
+    setPicopAssignmentOpen(true);
+    setPicopAssignmentLoading(true);
+    const { data, error } = await supabase.from("marker_boards")
+      .select("id, label, board_code, status, assigned_to, assigned_email, placement_requested_at, submitted_at, verified_at, elr, route_reference, mileage_miles, mileage_chains")
+      .eq("worksite_id", item.id).order("created_at", { ascending: true });
+    if (error) setToast("Could not load this possession's marker boards: " + error.message);
+    else {
+      const boards = data || [];
+      setPicopAssignmentBoards(boards);
+      setPicopBoardAssignees(Object.fromEntries(boards.map(board => [board.id, board.assigned_email || ""])));
+      if (!boards.length) setToast("This possession has no marker boards yet. The Planner must add the required boards first.");
+    }
+    setPicopAssignmentLoading(false);
+  };
+
+  const assignAndRequestMarkerBoards = async () => {
+    if (!picopAssignmentWorksite) return;
+    const assignments = picopAssignmentBoards.filter(board => picopBoardAssignees[board.id])
+      .map(board => ({ marker_board_id: board.id, email: picopBoardAssignees[board.id] }));
+    if (!assignments.length) { setToast("Choose an operative for at least one marker board."); return; }
+    setPicopAssignmentSaving(true);
+    const { data, error } = await supabase.rpc("picop_assign_and_request_marker_boards", {
+      p_worksite_id: picopAssignmentWorksite.id, p_assignments: assignments
+    });
+    if (error) setToast("Could not assign marker boards: " + error.message);
+    else {
+      const requestedAt = new Date().toISOString();
+      setCalendarWorksites(prev => prev.map(row => row.id === picopAssignmentWorksite.id ? { ...row, board_placement_requested_at: requestedAt } : row));
+      setPicopAssignmentBoards(prev => prev.map(board => {
+        const email = picopBoardAssignees[board.id];
+        const operative = teamOptions.find(profile => String(profile.email || "").toLowerCase() === String(email || "").toLowerCase());
+        return email ? { ...board, assigned_email: email, assigned_to: operative?.display_name || operative?.email || "", placement_requested_at: requestedAt } : board;
+      }));
+      setPicopAssignmentOpen(false);
+      setToast("Marker-board requests sent. " + (data?.notified_count ?? assignments.length) + " notification(s) sent to assigned operative(s).");
+    }
+    setPicopAssignmentSaving(false);
   };
 
   const requestBoardPlacement = async (item) => {
@@ -1078,7 +1128,7 @@ export default function App() {
         {membership.role !== "member" && membership.role !== "planner" && <button className={`sidebar-link ${activePage === "overview" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("overview")}><span className="sidebar-icon">▦</span><span className="sidebar-label">{membership.role === "picop" ? "PICOP overview" : "Overview"}</span></button>}
         {membership.role !== "member" && membership.role !== "planner" && membership.role !== "picop" && <button className={`sidebar-link ${activePage === "calendar" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("calendar")}><span className="sidebar-icon">▦</span><span className="sidebar-label">Possession calendar</span></button>}
         {["owner", "admin"].includes(membership.role) && <button className={`sidebar-link ${activePage === "map" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("map")}><span className="sidebar-icon">⌖</span><span className="sidebar-label">Worksites &amp; map</span></button>}
-        {membership.role !== "planner" && <button className={`sidebar-link ${activePage === "boards" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("boards")}><span className="sidebar-icon">⚑</span><span className="sidebar-label">{membership.role === "member" ? "My board tasks" : "Marker boards &amp; tasks"}</span></button>}
+        {membership.role !== "planner" && membership.role !== "picop" && <button className={`sidebar-link ${activePage === "boards" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("boards")}><span className="sidebar-icon">⚑</span><span className="sidebar-label">Marker boards &amp; tasks</span></button>}{membership.role === "member" && <button className={`sidebar-link ${activePage === "boards" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("boards")}><span className="sidebar-icon">⚑</span><span className="sidebar-label">My board tasks</span></button>}
         {["owner", "admin"].includes(membership.role) && <button className={`sidebar-link ${activePage === "profiles" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("profiles")}><span className="sidebar-icon">♙</span><span className="sidebar-label">Manage profiles</span></button>}
         <div className="sidebar-spacer"></div><div className="sidebar-footer"><span className="online-dot"/><span className="sidebar-label">Company workspace</span></div>
       </aside>
@@ -1111,14 +1161,14 @@ export default function App() {
               {["owner", "admin", "planner"].includes(membership.role) && <button className="calendar-add-day" onClick={() => startNewPossession(dateKey)} aria-label={`Add possession on ${dayDate.toLocaleDateString("en-GB")}`}>+ Plan</button>}
               <div className="calendar-day-events">
                 {entries.map(item => <div key={item.id} className="calendar-event-wrap">
-                  <button className={`calendar-event ${String(item.possession_status || item.status || "").toLowerCase() === "cancelled" ? "event-cancelled" : item.activated_at ? "event-active-rainbow" : item.picop_response === "accepted" ? "event-accepted" : item.picop_response === "declined" ? "event-declined" : "event-pending"}`} onClick={() => ["owner", "admin", "planner"].includes(membership.role) ? openPossession(item) : selectWorksiteTasks(item)} title={item.name}>
+                  <button className={`calendar-event ${String(item.possession_status || item.status || "").toLowerCase() === "cancelled" ? "event-cancelled" : item.activated_at ? "event-active-rainbow" : item.picop_response === "accepted" ? "event-accepted" : item.picop_response === "declined" ? "event-declined" : "event-pending"}`} onClick={() => ["owner", "admin", "planner"].includes(membership.role) ? openPossession(item) : membership.role === "picop" ? openPicopPossession(item) : selectWorksiteTasks(item)} title={item.name}>
                     <span>{item.name || "Untitled possession"}</span>
                     <small>{(item.possession_status || item.status || "").toLowerCase() === "cancelled" ? "CANCELLED · " : ""}{item.elr || "ELR TBC"}{item.start_miles !== null && item.start_miles !== undefined ? ` · ${item.start_miles}m ${String(item.start_chains ?? 0).padStart(2,"0")}ch` : ""}{item.assigned_picop_email ? ` · PICOP: ${item.assigned_picop_email}` : " · PICOP unassigned"}{item.picop_response && item.picop_response !== "pending" ? ` · ${item.picop_response.toUpperCase()}` : ""}</small>
                   </button>
                   {["owner", "admin", "planner"].includes(membership.role) && ["complete", "completed"].includes(String(item.possession_status || item.status || "").toLowerCase()) && <div className="picop-event-actions"><button type="button" className="request-boards-button" onClick={() => exportPossessionPdf(item)}>Export close-out PDF</button></div>}
                   {membership.role === "picop" && isAssignedToCurrentPicop(item) && (item.picop_response || "pending") === "pending" && <div className="picop-event-actions"><button type="button" onClick={() => respondToPossession(item,"accepted")} disabled={workflowBusyId === item.id}>Accept</button><button type="button" onClick={() => respondToPossession(item,"declined")} disabled={workflowBusyId === item.id}>Decline</button></div>}
-                  {membership.role === "picop" && isAssignedToCurrentPicop(item) && item.picop_response === "accepted" && !item.board_placement_requested_at && <div className="picop-event-actions"><button type="button" className="request-boards-button" onClick={() => requestBoardPlacement(item)} disabled={workflowBusyId === item.id}>Request board placement</button></div>}
-                  {membership.role === "picop" && isAssignedToCurrentPicop(item) && item.board_placement_requested_at && <div className="picop-event-actions"><button className="request-boards-button" type="button" onClick={() => activateWorksite(item)} disabled={workflowBusyId === item.id || item.activated_at}>{item.activated_at ? "Work site active" : workflowBusyId === item.id ? "Checking board evidence…" : "Activate work site"}</button></div>}
+                  {membership.role === "picop" && isAssignedToCurrentPicop(item) && item.picop_response === "accepted" && !item.board_placement_requested_at && <div className="picop-event-actions"><button type="button" className="request-boards-button" onClick={() => openPicopPossession(item)}>Assign users &amp; request boards</button></div>}
+                  {membership.role === "picop" && isAssignedToCurrentPicop(item) && item.board_placement_requested_at && <div className="picop-event-actions"><button className="request-boards-button" type="button" onClick={() => openPicopPossession(item)}>View board assignments</button><button className="request-boards-button" type="button" onClick={() => activateWorksite(item)} disabled={workflowBusyId === item.id || item.activated_at}>{item.activated_at ? "Work site active" : workflowBusyId === item.id ? "Checking board evidence…" : "Activate work site"}</button></div>}
                 </div>)}
               </div>
             </div>;
@@ -1126,6 +1176,24 @@ export default function App() {
         </div>
         <div className="calendar-legend"><span><i className="legend-pending"/> Awaiting PICOP acceptance</span><span><i className="legend-accepted"/> PICOP accepted</span><span><i className="legend-cancelled"/> Cancelled</span><span>{calendarWorksites.length} saved possession(s)</span></div>
       </section>
+      {picopAssignmentOpen && membership.role === "picop" && picopAssignmentWorksite && <div className="possession-modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget && !picopAssignmentSaving) setPicopAssignmentOpen(false); }}>
+        <section className="possession-modal picop-assignment-modal" role="dialog" aria-modal="true" aria-labelledby="picop-assignment-title">
+          <div className="possession-modal-header"><div><div className="eyebrow">PICOP POSSESSION</div><h2 id="picop-assignment-title">{picopAssignmentWorksite.name || "Untitled possession"}</h2><p>{picopAssignmentWorksite.reference || "No reference"} · {picopAssignmentWorksite.elr || "ELR TBC"} · Assign an operative to each marker board.</p></div><button type="button" className="btn btn-secondary" onClick={() => setPicopAssignmentOpen(false)} disabled={picopAssignmentSaving}>Close</button></div>
+          {picopAssignmentLoading ? <div className="picop-assignment-empty">Loading marker boards…</div> : picopAssignmentBoards.length === 0 ? <div className="picop-assignment-empty">No marker boards have been added to this possession. Ask the Planner to add the boards first; the PICOP assigns users but does not create marker boards.</div> : <>
+            <div className="picop-assignment-intro"><strong>{picopAssignmentBoards.length} marker board(s)</strong><span>Choose who will place each board. Notifications are sent only when you submit the assignments.</span></div>
+            <div className="picop-assignment-list">{picopAssignmentBoards.map(board => {
+              const requested = Boolean(board.placement_requested_at || picopAssignmentWorksite.board_placement_requested_at);
+              const status = board.verified_at || board.status === "verified" ? "Verified" : board.submitted_at || board.status === "placed" ? "Evidence submitted" : requested ? "Request sent" : "Not requested";
+              return <div className="picop-assignment-row" key={board.id}>
+                <div className="picop-assignment-board"><strong>{board.label || board.board_code || "Marker board"}</strong><small>{board.board_code ? "Ref: " + board.board_code + " · " : ""}{board.elr || picopAssignmentWorksite.elr || "ELR TBC"}{board.mileage_miles != null ? " · " + board.mileage_miles + "m " + String(board.mileage_chains ?? 0).padStart(2,"0") + "ch" : ""}</small><span className={board.verified_at || board.status === "verified" ? "status-pill verified" : requested ? "status-pill assigned" : "status-pill pending"}>{status}</span></div>
+                <label>Operative<select value={picopBoardAssignees[board.id] || ""} onChange={event => setPicopBoardAssignees(prev => ({...prev, [board.id]: event.target.value}))} disabled={requested}><option value="">Choose operative…</option>{teamOptions.map(profile => <option key={profile.user_id || profile.email} value={profile.email}>{profile.display_name || profile.email} ({profile.email})</option>)}</select></label>
+              </div>;
+            })}</div>
+            <div className="picop-assignment-note">Submitting sends each selected operative a notification to place their assigned board and submit photo/GPS evidence. Board locations and required boards are set by the Planner.</div>
+          </>}
+          <div className="possession-modal-footer"><span>Notifications are not sent until you submit.</span><div className="possession-footer-actions"><button type="button" className="btn btn-secondary" onClick={() => setPicopAssignmentOpen(false)} disabled={picopAssignmentSaving}>Cancel</button><button type="button" className="btn btn-primary" onClick={assignAndRequestMarkerBoards} disabled={picopAssignmentSaving || picopAssignmentLoading || picopAssignmentBoards.length === 0 || Boolean(picopAssignmentWorksite.board_placement_requested_at)}>{picopAssignmentSaving ? "Sending requests…" : picopAssignmentWorksite.board_placement_requested_at ? "Placement requests already sent" : "Assign users & send notifications"}</button></div></div>
+        </section>
+      </div>}
       {possessionEditorOpen && ["owner", "admin", "planner"].includes(membership.role) && <div className="possession-modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) { setPossessionEditorOpen(false); setEditorPlacingBoard(false); } }}>
         <section className="possession-modal" role="dialog" aria-modal="true" aria-labelledby="possession-editor-title">
           <div className="possession-modal-header">
