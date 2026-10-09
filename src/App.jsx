@@ -166,6 +166,7 @@ export default function App() {
   const [toast, setToast] = useState("");
   const [photoPreviews, setPhotoPreviews] = useState({});
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [activePage, setActivePage] = useState("overview");
 
 
   useEffect(() => {
@@ -623,13 +624,14 @@ export default function App() {
       <aside className="app-sidebar" aria-label="Main navigation">
         <button className="sidebar-toggle" type="button" onClick={() => setSidebarCollapsed(v => !v)} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}><span>{sidebarCollapsed ? "☰" : "‹"}</span><span className="sidebar-label">{sidebarCollapsed ? "" : "Collapse menu"}</span></button>
         <div className="sidebar-section-label">WORKSPACE</div>
-        <button className="sidebar-link" onClick={() => document.getElementById("overview-screen")?.scrollIntoView({behavior:"smooth",block:"start"})}><span className="sidebar-icon">▦</span><span className="sidebar-label">Overview</span></button>
-        <button className="sidebar-link" onClick={() => document.getElementById("calendar-screen")?.scrollIntoView({behavior:"smooth",block:"start"})}><span className="sidebar-icon">▦</span><span className="sidebar-label">Possession calendar</span></button>
-        <button className="sidebar-link" onClick={() => document.getElementById("map-screen")?.scrollIntoView({behavior:"smooth",block:"start"})}><span className="sidebar-icon">⌖</span><span className="sidebar-label">Worksites &amp; map</span></button>
-        <button className="sidebar-link" onClick={() => document.getElementById("boards-screen")?.scrollIntoView({behavior:"smooth",block:"start"})}><span className="sidebar-icon">⚑</span><span className="sidebar-label">Marker boards &amp; tasks</span></button>
+        <button className={`sidebar-link ${activePage === "overview" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("overview")}><span className="sidebar-icon">▦</span><span className="sidebar-label">Overview</span></button>
+        <button className={`sidebar-link ${activePage === "calendar" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("calendar")}><span className="sidebar-icon">▦</span><span className="sidebar-label">Possession calendar</span></button>
+        <button className={`sidebar-link ${activePage === "map" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("map")}><span className="sidebar-icon">⌖</span><span className="sidebar-label">Worksites &amp; map</span></button>
+        <button className={`sidebar-link ${activePage === "boards" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("boards")}><span className="sidebar-icon">⚑</span><span className="sidebar-label">Marker boards &amp; tasks</span></button>
         <div className="sidebar-spacer"></div><div className="sidebar-footer"><span className="online-dot"/><span className="sidebar-label">Company workspace</span></div>
       </aside>
       <main className="workspace">
+      {activePage === "calendar" && <>
       <section className="planning-calendar" id="calendar-screen">
         <div className="calendar-heading">
           <div><div className="eyebrow">POSSESSION PLANNING</div><h2>Possession calendar</h2><p>Select a date to plan a new possession, or open an existing one.</p></div>
@@ -715,16 +717,11 @@ export default function App() {
           <div className="possession-modal-footer"><span>Changes are saved to the shared company workspace.</span><div><button className="btn btn-secondary" type="button" onClick={() => { setPossessionEditorOpen(false); setEditorPlacingBoard(false); }}>Cancel</button><button className="btn btn-primary" type="button" onClick={saveWorksite} disabled={siteSaving || siteLoading}>{siteSaving ? "Saving…" : "Save possession"}</button></div></div>
         </section>
       </div>}
-      <section className="dashboard-overview" id="overview-screen">
+      </>}
+      {activePage === "overview" && <section className="dashboard-overview" id="overview-screen">
         <div className="dashboard-heading">
           <div><div className="eyebrow">OPERATIONS CONTROL</div><h1>PICOP dashboard</h1><p>Work-site status, marker-board progress and railway location reference.</p></div>
           <div className="dashboard-live"><span className="online-dot"/><span>SESSION ACTIVE</span><small>{membership.companies?.name || "Company workspace"}</small></div>
-        </div>
-        <div className="possession-controls">
-          <label>Possession status<select value={possessionStatus} onChange={e => setPossessionStatus(e.target.value)}><option>Planning</option><option>Briefing</option><option>In progress</option><option>Suspended</option><option>Complete</option><option>Cancelled</option></select></label>
-          <label>Planned start<input type="datetime-local" value={plannedStartAt} onChange={e => setPlannedStartAt(e.target.value)}/></label>
-          <label>Planned finish<input type="datetime-local" value={plannedEndAt} onChange={e => setPlannedEndAt(e.target.value)}/></label>
-          <button className="btn btn-primary possession-save" onClick={saveWorksite} disabled={siteSaving || siteLoading}>{siteSaving ? "Saving…" : "Save overview"}</button>
         </div>
         <div className="overview-cards">
           <article className="overview-card overview-card-site"><div className="overview-card-top"><span className="overview-icon">⌖</span><span className="overview-label">ACTIVE WORK SITE</span></div><strong className="overview-main-value">{workSiteName || "Unnamed work site"}</strong><div className="overview-card-foot">{workRef || "No work-site reference"} <span className="overview-status-dot"/> {worksiteId ? "SAVED" : "DRAFT"}</div></article>
@@ -743,8 +740,8 @@ export default function App() {
             {plannedStartAt && plannedEndAt && new Date(plannedEndAt) <= new Date(plannedStartAt) && <span className="action-chip action-danger">Planned finish must be after start</span>}
           </div>
         </div>
-      </section>
-      <section className="map-column" id="map-screen">
+      </section>}
+      {activePage === "map" && <section className="map-column" id="map-screen">
         <div className="site-toolbar">
           <div className="site-title-group">
             <div className="eyebrow">ACTIVE WORK SITE</div>
@@ -810,9 +807,9 @@ export default function App() {
           <div className="map-footer-item"><span className="footer-icon">⚑</span><div><strong>{tasks.length} marker-board tasks</strong><small>Click a pin to view or edit its task</small></div></div>
           <div className="map-footer-item"><span className="footer-icon">◎</span><div><strong>{gps ? `GPS accuracy ±${gps.accuracy} m` : "GPS not shared"}</strong><small>{gps ? `Last fix ${gps.time.toLocaleTimeString()}` : "Location only requested when you press the button"}</small></div></div>
         </div>
-      </section>
+      </section>}
 
-      <aside className="side-panel" id="boards-screen">
+      {activePage === "boards" && <aside className="side-panel" id="boards-screen">
         <div className="panel-heading">
           <div><div className="eyebrow">PICOP DASHBOARD</div><h1>Work-site tasks</h1></div>
           <span className="count-badge">{tasks.length}</span>
@@ -886,7 +883,7 @@ export default function App() {
           </>}
         </div>
         <div className="panel-bottom-note"><span className="lock-icon">▣</span> Demo data only · Changes are not saved between reloads</div>
-      </aside>
+      </aside>}
       </main>
     </div>
     <footer className="app-footer"><span>RAILSITE MVP <b>0.1.0</b></span><span>Prototype for workflow review · Not for operational use</span></footer>
