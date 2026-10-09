@@ -353,3 +353,28 @@ body{background:#0b1420;color:#e8eef4}
 .calendar-day-today{outline:2px solid #e0a33b;outline-offset:-2px;background:rgba(224,163,59,.09)}
 .calendar-day-today .calendar-day-number{color:#ffd27c;font-weight:800}
 .calendar-today-tag{display:inline-block;margin-left:5px;padding:2px 4px;border-radius:4px;background:#e0a33b;color:#17212b;font-size:8px;font-weight:900;vertical-align:middle}
+
+/* Rainbow loading-style animation for possessions that have been activated after board verification */
+.calendar-event.event-active-rainbow{
+  color:#fff;
+  border:1px solid rgba(255,255,255,.8);
+  background:linear-gradient(110deg,#ef4444,#f59e0b,#eab308,#22c55e,#06b6d4,#3b82f6,#a855f7,#ec4899,#ef4444);
+  background-size:300% 300%;
+  animation:possession-rainbow-flow 4s linear infinite, possession-rainbow-glow 2s ease-in-out infinite alternate;
+  box-shadow:0 0 0 1px rgba(255,255,255,.12),0 0 12px rgba(168,85,247,.28);
+}
+.calendar-event.event-active-rainbow span,.calendar-event.event-active-rainbow small{
+  color:#fff;
+  text-shadow:0 1px 2px rgba(0,0,0,.65);
+}
+@keyframes possession-rainbow-flow{
+  0%{background-position:0% 50%}
+  100%{background-position:100% 50%}
+}
+@keyframes possession-rainbow-glow{
+  from{box-shadow:0 0 0 1px rgba(255,255,255,.12),0 0 7px rgba(255,255,255,.18)}
+  to{box-shadow:0 0 0 2px rgba(255,255,255,.28),0 0 15px rgba(255,255,255,.48)}
+}
+@media(prefers-reduced-motion:reduce){
+  .calendar-event.event-active-rainbow{animation:none;background-position:50% 50%}
+}
