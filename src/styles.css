@@ -24,3 +24,26 @@
 .login-message{margin:12px 0;padding:11px 12px;border:1px solid #bfe4d2;background:#eefaf4;border-radius:7px;color:#176e4e;font-size:11px;line-height:1.5}
 .signed-in-user{font-size:10px;color:#b7c6d4;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media(max-width:520px){.login-card{padding:25px 21px}.signed-in-user{display:none}}
+
+
+/* Railway mileage reference fields */
+.site-ref{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.site-ref input{width:150px;max-width:100%;border:1px solid #d6e0e8;border-radius:5px;padding:5px 7px;font-size:10px;color:#33475b;background:#fff}
+.rail-mileage-panel{background:#fff;border:1px solid #dce3eb;border-top:0;padding:14px 16px 12px}
+.rail-mileage-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.rail-mileage-heading strong{display:block;font-family:Manrope,sans-serif;font-size:13px;color:#203448;margin-top:3px}
+.mileage-format-tag{font-size:9px;font-weight:800;color:#285d79;background:#eaf3f8;border:1px solid #d5e6ef;border-radius:5px;padding:6px 8px;white-space:nowrap}
+.rail-reference-fields,.mileage-range-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.rail-reference-fields label,.mileage-endpoint label,.marker-reference-fields label,.marker-chain-fields label{display:flex;flex-direction:column;gap:5px;font-size:10px;font-weight:700;color:#5b6c7c;min-width:0}
+.rail-reference-fields input,.mileage-endpoint input,.marker-reference-fields input,.marker-chain-fields input{width:100%;min-width:0;box-sizing:border-box;border:1px solid #d7e0e8;border-radius:6px;background:#fff;color:#25374a;padding:9px 10px;font-size:11px;outline-color:#7ea7c5}
+.mileage-range-fields{margin-top:11px}
+.mileage-endpoint{padding:10px;background:#f6f8fa;border:1px solid #e4eaf0;border-radius:7px;min-width:0}
+.mileage-endpoint>span{font-size:10px;font-weight:800;color:#31465a;display:block;margin-bottom:8px}
+.mileage-endpoint>div{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.rail-mileage-panel>p{font-size:9px;line-height:1.5;color:#7b8997;margin:10px 0 0}
+.marker-mileage-card{margin:13px 0;padding:12px;background:#f6f9fb;border:1px solid #dce6ed;border-radius:8px}
+.marker-mileage-card>.eyebrow{margin-bottom:9px}
+.marker-reference-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.marker-chain-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.marker-mileage-card>small{display:block;font-size:9px;line-height:1.45;color:#788897;margin-top:9px}
+@media(max-width:420px){.rail-mileage-panel{padding:12px}.rail-reference-fields,.mileage-range-fields{grid-template-columns:1fr}.mileage-endpoint>div{grid-template-columns:1fr 1fr}.site-ref input{width:125px}}
