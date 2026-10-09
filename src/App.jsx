@@ -177,6 +177,8 @@ export default function App() {
   const [teamOptions, setTeamOptions] = useState([]);
   const [assignedPicopEmail, setAssignedPicopEmail] = useState("");
   const [picopResponse, setPicopResponse] = useState("pending");
+  const [notifications, setNotifications] = useState([]);
+  const [workflowBusyId, setWorkflowBusyId] = useState("");
 
 
   useEffect(() => {
@@ -252,7 +254,7 @@ export default function App() {
       setSiteLoading(true);
       const { data, error } = await supabase
         .from("worksites")
-        .select("id, name, reference, description, boundary, status, possession_status, planned_start_at, planned_end_at, elr, route_reference, start_miles, start_chains, end_miles, end_chains, assigned_picop_email, picop_response, created_at")
+        .select("id, name, reference, description, boundary, status, possession_status, planned_start_at, planned_end_at, elr, route_reference, start_miles, start_chains, end_miles, end_chains, assigned_picop_email, picop_response, picop_response_at, board_placement_requested_at, activated_at, created_at")
         .eq("company_id", membership.company_id)
         .order("created_at", { ascending: false });
       if (!active) return;
@@ -356,6 +358,49 @@ export default function App() {
     }
     return () => { active = false; };
   }, [membership?.company_id]);
+
+  useEffect(() => {
+    if (!supabase || !membership?.company_id || !session?.user?.email) return;
+    let active = true;
+    const loadNotifications = async () => {
+      const { data, error } = await supabase.from("railsite_notifications")
+        .select("id, kind, message, created_at, worksite_id, marker_board_id")
+        .eq("company_id", membership.company_id).ilike("recipient_email", session.user.email)
+        .is("read_at", null).order("created_at", { ascending: false }).limit(8);
+      if (active && !error) setNotifications(data || []);
+    };
+    void loadNotifications();
+    const timer = window.setInterval(loadNotifications, 15000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [membership?.company_id, session?.user?.email]);
+
+  const markNotificationRead = async (notificationId) => {
+    const { error } = await supabase.from("railsite_notifications").update({ read_at: new Date().toISOString() }).eq("id", notificationId);
+    if (error) setToast("Could not dismiss notification: " + error.message);
+    else setNotifications(prev => prev.filter(item => item.id !== notificationId));
+  };
+
+  const respondToPossession = async (item, response) => {
+    setWorkflowBusyId(item.id);
+    const { error } = await supabase.rpc("picop_respond_to_worksite", { p_worksite_id: item.id, p_response: response });
+    if (error) setToast("Could not record PICOP response: " + error.message);
+    else {
+      setCalendarWorksites(prev => prev.map(row => row.id === item.id ? { ...row, picop_response: response, picop_response_at: new Date().toISOString() } : row));
+      setToast(response === "accepted" ? "Possession accepted. Marker-board placement remains a separate step." : "Possession declined. The Planner has been notified.");
+    }
+    setWorkflowBusyId("");
+  };
+
+  const requestBoardPlacement = async (item) => {
+    setWorkflowBusyId(item.id);
+    const { data, error } = await supabase.rpc("picop_request_board_placement", { p_worksite_id: item.id });
+    if (error) setToast("Could not request marker-board placement: " + error.message);
+    else {
+      setCalendarWorksites(prev => prev.map(row => row.id === item.id ? { ...row, board_placement_requested_at: new Date().toISOString() } : row));
+      setToast(`Board-placement requests sent to ${data?.notified_count ?? 0} assigned user(s).`);
+    }
+    setWorkflowBusyId("");
+  };
 
   // Keep the shared company calendar current for other signed-in members.
   // Realtime is used when available, with a lightweight polling fallback.
@@ -772,6 +817,7 @@ export default function App() {
         <div className="sidebar-spacer"></div><div className="sidebar-footer"><span className="online-dot"/><span className="sidebar-label">Company workspace</span></div>
       </aside>
       <main className="workspace">
+      {notifications.length > 0 && <section className="notification-center" aria-label="Notifications"><div className="notification-center-heading"><strong>Notifications</strong><span>{notifications.length} unread</span></div>{notifications.map(note => <div className="notification-row" key={note.id}><span className="notification-mark">!</span><p>{note.message}<small>{new Date(note.created_at).toLocaleString("en-GB")}</small></p><button type="button" onClick={() => markNotificationRead(note.id)} aria-label="Mark notification as read">×</button></div>)}</section>}
       {activePage === "calendar" && <>
       {["owner", "admin", "planner"].includes(membership.role) && null}
       <section className="planning-calendar" id="calendar-screen">
@@ -797,10 +843,15 @@ export default function App() {
               <button className="calendar-day-number" onClick={() => ["owner", "admin", "planner"].includes(membership.role) ? startNewPossession(dateKey) : setSelectedCalendarDate(dateKey)} aria-label={`${["owner", "admin", "planner"].includes(membership.role) ? "Plan possession on" : "Select"} ${dayDate.toLocaleDateString("en-GB")}`}>{dayDate.getDate()}</button>
               {["owner", "admin", "planner"].includes(membership.role) && <button className="calendar-add-day" onClick={() => startNewPossession(dateKey)} aria-label={`Add possession on ${dayDate.toLocaleDateString("en-GB")}`}>+ Plan</button>}
               <div className="calendar-day-events">
-                {entries.map(item => <button key={item.id} className={`calendar-event event-${statusClass(item.possession_status || item.status || "Planning")}`} onClick={() => ["owner", "admin", "planner"].includes(membership.role) ? openPossession(item) : setToast("PICOP possession acceptance and assigned-board workflow is being connected next.")} title={item.name}>
-                  <span>{item.name || "Untitled possession"}</span>
-                  <small>{(item.possession_status || item.status || "").toLowerCase() === "cancelled" ? "CANCELLED · " : ""}{item.elr || "ELR TBC"}{item.start_miles !== null && item.start_miles !== undefined ? ` · ${item.start_miles}m ${String(item.start_chains ?? 0).padStart(2,"0")}ch` : ""}{item.assigned_picop_email ? ` · PICOP: ${item.assigned_picop_email}` : " · PICOP unassigned"}{item.picop_response && item.picop_response !== "pending" ? ` · ${item.picop_response.toUpperCase()}` : ""}</small>
-                </button>)}
+                {entries.map(item => <div key={item.id} className="calendar-event-wrap">
+                  <button className={`calendar-event event-${statusClass(item.possession_status || item.status || "Planning")}`} onClick={() => ["owner", "admin", "planner"].includes(membership.role) ? openPossession(item) : setSelectedCalendarDate(dateKey)} title={item.name}>
+                    <span>{item.name || "Untitled possession"}</span>
+                    <small>{(item.possession_status || item.status || "").toLowerCase() === "cancelled" ? "CANCELLED · " : ""}{item.elr || "ELR TBC"}{item.start_miles !== null && item.start_miles !== undefined ? ` · ${item.start_miles}m ${String(item.start_chains ?? 0).padStart(2,"0")}ch` : ""}{item.assigned_picop_email ? ` · PICOP: ${item.assigned_picop_email}` : " · PICOP unassigned"}{item.picop_response && item.picop_response !== "pending" ? ` · ${item.picop_response.toUpperCase()}` : ""}</small>
+                  </button>
+                  {membership.role === "picop" && (item.picop_response || "pending") === "pending" && <div className="picop-event-actions"><button type="button" onClick={() => respondToPossession(item,"accepted")} disabled={workflowBusyId === item.id}>Accept</button><button type="button" onClick={() => respondToPossession(item,"declined")} disabled={workflowBusyId === item.id}>Decline</button></div>}
+                  {membership.role === "picop" && item.picop_response === "accepted" && !item.board_placement_requested_at && <div className="picop-event-actions"><button type="button" className="request-boards-button" onClick={() => requestBoardPlacement(item)} disabled={workflowBusyId === item.id}>Request board placement</button></div>}
+                  {membership.role === "picop" && item.board_placement_requested_at && <div className="picop-event-note">Board placement requested</div>}
+                </div>)}
               </div>
             </div>;
           })}
