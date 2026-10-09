@@ -493,7 +493,6 @@ export default function App() {
     setPlannedStartAt(row.planned_start_at ? toLocalDateTime(row.planned_start_at) : "");
     setPlannedEndAt(row.planned_end_at ? toLocalDateTime(row.planned_end_at) : "");
     setSelectedCalendarDate(row.planned_start_at ? row.planned_start_at.slice(0, 10) : "");
-    setWorkSite([]);
     setTasks([]);
     setSelectedId("");
     setPhotoPreviews({});
@@ -580,7 +579,7 @@ export default function App() {
             <button className="btn btn-secondary" onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth()-1, 1))} aria-label="Previous month">‹</button>
             <strong>{calendarMonth.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}</strong>
             <button className="btn btn-secondary" onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth()+1, 1))} aria-label="Next month">›</button>
-            <button className="btn btn-primary" onClick={() => startNewPossession(new Date().toLocaleDateString("en-CA"))}>+ New possession</button>
+            <button className="btn btn-primary" onClick={() => startNewPossession(toLocalDateTime(new Date()).slice(0, 10))}>+ New possession</button>
           </div>
         </div>
         <div className="calendar-weekdays">{["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(day => <div key={day}>{day}</div>)}</div>
@@ -591,7 +590,7 @@ export default function App() {
             const dayDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), index - offset + 1);
             const dateKey = `${dayDate.getFullYear()}-${String(dayDate.getMonth()+1).padStart(2,"0")}-${String(dayDate.getDate()).padStart(2,"0")}`;
             const inMonth = dayDate.getMonth() === calendarMonth.getMonth();
-            const entries = calendarWorksites.filter(item => item.planned_start_at && new Date(item.planned_start_at).toLocaleDateString("en-CA") === dateKey);
+            const entries = calendarWorksites.filter(item => item.planned_start_at && toLocalDateTime(item.planned_start_at).slice(0, 10) === dateKey);
             return <div key={dateKey} className={`calendar-day ${inMonth ? "" : "calendar-day-muted"} ${selectedCalendarDate === dateKey ? "calendar-day-selected" : ""}`}>
               <button className="calendar-day-number" onClick={() => startNewPossession(dateKey)} aria-label={`Plan possession on ${dayDate.toLocaleDateString("en-GB")}`}>{dayDate.getDate()}</button>
               <div className="calendar-day-events">
