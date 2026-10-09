@@ -1042,14 +1042,16 @@ export default function App() {
   const visibleTasks = useMemo(() => filter === "All tasks" ? tasks : tasks.filter(t => t.status === filter), [tasks, filter]);
   const count = (status) => tasks.filter(t => t.status === status).length;
   const now = Date.now();
-  const activeWorksites = calendarWorksites.filter(item => {
+  const isAssignedToCurrentPicop = (item) => membership?.role !== "picop" || String(item.assigned_picop_email || "").trim().toLowerCase() === String(session?.user?.email || "").trim().toLowerCase();
+  const picopAssignedWorksites = calendarWorksites.filter(isAssignedToCurrentPicop);
+  const activeWorksites = picopAssignedWorksites.filter(item => {
     const start = item.planned_start_at ? new Date(item.planned_start_at).getTime() : NaN;
     const end = item.planned_end_at ? new Date(item.planned_end_at).getTime() : NaN;
     const status = String(item.possession_status || item.status || "").toLowerCase();
     return Number.isFinite(start) && Number.isFinite(end) && now >= start && now < end && !["cancelled", "complete", "completed", "suspended"].includes(status);
   });
-  const awaitingPicopWorksites = calendarWorksites.filter(item => (item.picop_response || "pending") === "pending" && String(item.possession_status || item.status || "").toLowerCase() !== "cancelled");
-  const confirmedPicopWorksites = calendarWorksites.filter(item => item.picop_response === "accepted" && String(item.possession_status || item.status || "").toLowerCase() !== "cancelled");
+  const awaitingPicopWorksites = (membership?.role === "picop" ? picopAssignedWorksites : calendarWorksites).filter(item => (item.picop_response || "pending") === "pending" && String(item.possession_status || item.status || "").toLowerCase() !== "cancelled");
+  const confirmedPicopWorksites = (membership?.role === "picop" ? picopAssignedWorksites : calendarWorksites).filter(item => item.picop_response === "accepted" && String(item.possession_status || item.status || "").toLowerCase() !== "cancelled");
 
   if (authLoading) return <main className="login-page"><section className="login-card"><div className="login-brand-mark">R</div><h1>Opening RailSite…</h1><p className="login-intro">Checking your secure session.</p></section></main>;
    if (session && mustChangePassword) return <FirstLoginPasswordScreen email={session.user.email || ""} onChangePassword={handleFirstLoginPasswordChange} />;
@@ -1114,9 +1116,9 @@ export default function App() {
                     <small>{(item.possession_status || item.status || "").toLowerCase() === "cancelled" ? "CANCELLED · " : ""}{item.elr || "ELR TBC"}{item.start_miles !== null && item.start_miles !== undefined ? ` · ${item.start_miles}m ${String(item.start_chains ?? 0).padStart(2,"0")}ch` : ""}{item.assigned_picop_email ? ` · PICOP: ${item.assigned_picop_email}` : " · PICOP unassigned"}{item.picop_response && item.picop_response !== "pending" ? ` · ${item.picop_response.toUpperCase()}` : ""}</small>
                   </button>
                   {["owner", "admin", "planner"].includes(membership.role) && ["complete", "completed"].includes(String(item.possession_status || item.status || "").toLowerCase()) && <div className="picop-event-actions"><button type="button" className="request-boards-button" onClick={() => exportPossessionPdf(item)}>Export close-out PDF</button></div>}
-                  {membership.role === "picop" && (item.picop_response || "pending") === "pending" && <div className="picop-event-actions"><button type="button" onClick={() => respondToPossession(item,"accepted")} disabled={workflowBusyId === item.id}>Accept</button><button type="button" onClick={() => respondToPossession(item,"declined")} disabled={workflowBusyId === item.id}>Decline</button></div>}
-                  {membership.role === "picop" && item.picop_response === "accepted" && !item.board_placement_requested_at && <div className="picop-event-actions"><button type="button" className="request-boards-button" onClick={() => requestBoardPlacement(item)} disabled={workflowBusyId === item.id}>Request board placement</button></div>}
-                  {membership.role === "picop" && item.board_placement_requested_at && <div className="picop-event-actions"><button className="request-boards-button" type="button" onClick={() => activateWorksite(item)} disabled={workflowBusyId === item.id || item.activated_at}>{item.activated_at ? "Work site active" : workflowBusyId === item.id ? "Checking board evidence…" : "Activate work site"}</button></div>}
+                  {membership.role === "picop" && isAssignedToCurrentPicop(item) && (item.picop_response || "pending") === "pending" && <div className="picop-event-actions"><button type="button" onClick={() => respondToPossession(item,"accepted")} disabled={workflowBusyId === item.id}>Accept</button><button type="button" onClick={() => respondToPossession(item,"declined")} disabled={workflowBusyId === item.id}>Decline</button></div>}
+                  {membership.role === "picop" && isAssignedToCurrentPicop(item) && item.picop_response === "accepted" && !item.board_placement_requested_at && <div className="picop-event-actions"><button type="button" className="request-boards-button" onClick={() => requestBoardPlacement(item)} disabled={workflowBusyId === item.id}>Request board placement</button></div>}
+                  {membership.role === "picop" && isAssignedToCurrentPicop(item) && item.board_placement_requested_at && <div className="picop-event-actions"><button className="request-boards-button" type="button" onClick={() => activateWorksite(item)} disabled={workflowBusyId === item.id || item.activated_at}>{item.activated_at ? "Work site active" : workflowBusyId === item.id ? "Checking board evidence…" : "Activate work site"}</button></div>}
                 </div>)}
               </div>
             </div>;
@@ -1181,7 +1183,7 @@ export default function App() {
       </>}
       {membership.role !== "member" && (activePage === "overview" || (membership.role === "planner" && activePage === "calendar")) && <section className="dashboard-overview" id="overview-screen">
         <div className="dashboard-heading">
-          <div><div className="eyebrow">OPERATIONS CONTROL</div><h1>{membership.role === "planner" ? "Planning overview" : "PICOP dashboard"}</h1><p>{membership.role === "planner" ? "Plan possessions, manage the calendar and track PICOP responses." : "Work-site status, marker-board progress and railway location reference."}</p></div>
+          <div><div className="eyebrow">OPERATIONS CONTROL</div><h1>{membership.role === "planner" ? "Planning overview" : membership.role === "picop" ? "PICOP overview" : "Operations overview"}</h1><p>{membership.role === "planner" ? "Plan possessions, manage the calendar and track PICOP responses." : membership.role === "picop" ? "Your assigned possessions, confirmation actions and marker-board readiness." : "Work-site status, marker-board progress and railway location reference."}</p></div>
           <div className="dashboard-live"><span className="online-dot"/><span>SESSION ACTIVE</span><small>{membership.companies?.name || "Company workspace"}</small></div>
         </div>
         <div className="overview-cards">
