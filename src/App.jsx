@@ -184,7 +184,14 @@ export default function App() {
   const [worksiteId, setWorksiteId] = useState(null);
   const [calendarWorksites, setCalendarWorksites] = useState([]);
   const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [liveCalendarNow, setLiveCalendarNow] = useState(() => new Date());
   const [selectedCalendarDate, setSelectedCalendarDate] = useState("");
+  useEffect(() => {
+    const refreshCalendarDate = () => setLiveCalendarNow(new Date());
+    const timer = window.setInterval(refreshCalendarDate, 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const todayCalendarDate = toLocalDateTime(liveCalendarNow).slice(0, 10);
   const [possessionEditorOpen, setPossessionEditorOpen] = useState(false);
   const [editorPlacingBoard, setEditorPlacingBoard] = useState(false);
   const [elr, setElr] = useState("");
@@ -1004,10 +1011,11 @@ export default function App() {
       {["owner", "admin", "planner"].includes(membership.role) && null}
       <section className="planning-calendar" id="calendar-screen">
         <div className="calendar-heading">
-          <div><div className="eyebrow">POSSESSION PLANNING</div><h2>Possession calendar</h2><p>Select a date to plan a new possession, or open an existing one.</p></div>
+          <div><div className="eyebrow">POSSESSION PLANNING</div><h2>Possession calendar</h2><p>Select a date to plan a new possession, or open an existing one.</p><p className="calendar-today-live"><span className="online-dot" /> Today: <strong>{liveCalendarNow.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</strong></p></div>
           <div className="calendar-actions">
             <button className="btn btn-secondary" onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth()-1, 1))} aria-label="Previous month">‹</button>
             <strong>{calendarMonth.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}</strong>
+            <button className="btn btn-secondary" onClick={() => setCalendarMonth(new Date(liveCalendarNow.getFullYear(), liveCalendarNow.getMonth(), 1))} aria-label="Go to current month">Today</button>
             <button className="btn btn-secondary" onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth()+1, 1))} aria-label="Next month">›</button>
             {["owner", "admin", "planner"].includes(membership.role) && <button className="btn btn-primary" onClick={() => startNewPossession(toLocalDateTime(new Date()).slice(0, 10))}>+ New possession</button>}
           </div>
@@ -1021,8 +1029,8 @@ export default function App() {
             const dateKey = `${dayDate.getFullYear()}-${String(dayDate.getMonth()+1).padStart(2,"0")}-${String(dayDate.getDate()).padStart(2,"0")}`;
             const inMonth = dayDate.getMonth() === calendarMonth.getMonth();
             const entries = calendarWorksites.filter(item => item.planned_start_at && toLocalDateTime(item.planned_start_at).slice(0, 10) === dateKey);
-            return <div key={dateKey} className={`calendar-day ${inMonth ? "" : "calendar-day-muted"} ${selectedCalendarDate === dateKey ? "calendar-day-selected" : ""}`}>
-              <button className="calendar-day-number" onClick={() => ["owner", "admin", "planner"].includes(membership.role) ? startNewPossession(dateKey) : setSelectedCalendarDate(dateKey)} aria-label={`${["owner", "admin", "planner"].includes(membership.role) ? "Plan possession on" : "Select"} ${dayDate.toLocaleDateString("en-GB")}`}>{dayDate.getDate()}</button>
+            return <div key={dateKey} className={`calendar-day ${inMonth ? "" : "calendar-day-muted"} ${dateKey === todayCalendarDate ? "calendar-day-today" : ""} ${selectedCalendarDate === dateKey ? "calendar-day-selected" : ""}`}>
+              <button className="calendar-day-number" onClick={() => ["owner", "admin", "planner"].includes(membership.role) ? startNewPossession(dateKey) : setSelectedCalendarDate(dateKey)} aria-label={`${["owner", "admin", "planner"].includes(membership.role) ? "Plan possession on" : "Select"} ${dayDate.toLocaleDateString("en-GB")}`}>{dayDate.getDate()}{dateKey === todayCalendarDate && <span className="calendar-today-tag">TODAY</span>}</button>
               {["owner", "admin", "planner"].includes(membership.role) && <button className="calendar-add-day" onClick={() => startNewPossession(dateKey)} aria-label={`Add possession on ${dayDate.toLocaleDateString("en-GB")}`}>+ Plan</button>}
               <div className="calendar-day-events">
                 {entries.map(item => <div key={item.id} className="calendar-event-wrap">
