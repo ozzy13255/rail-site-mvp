@@ -69,6 +69,7 @@ function LoginScreen({ configured, loading, error, onSignIn, onResetPassword }) 
 }
 
 const statusClass = (status) => status.toLowerCase().replaceAll(" ", "-");
+const toLocalDateTime = (value) => { const date = new Date(value); return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}T${String(date.getHours()).padStart(2,"0")}:${String(date.getMinutes()).padStart(2,"0")}`; };
 const boardIcon = L.divIcon({
   className: "board-marker-wrap",
   html: '<div class="board-marker">B</div>',
@@ -145,6 +146,9 @@ export default function App() {
   const [workSiteName, setWorkSiteName] = useState("Grantham work site");
   const [workRef, setWorkRef] = useState("WS-2026-001");
   const [worksiteId, setWorksiteId] = useState(null);
+  const [calendarWorksites, setCalendarWorksites] = useState([]);
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState("");
   const [elr, setElr] = useState("");
   const [routeReference, setRouteReference] = useState("");
   const [startMiles, setStartMiles] = useState("");
@@ -229,36 +233,55 @@ export default function App() {
   useEffect(() => {
     if (!supabase || !membership?.company_id) return;
     let active = true;
-    const loadWorksite = async () => {
+    const loadWorksites = async () => {
       setSiteLoading(true);
       const { data, error } = await supabase
         .from("worksites")
-        .select("id, name, reference, description, boundary, status, possession_status, planned_start_at, planned_end_at, elr, route_reference, start_miles, start_chains, end_miles, end_chains")
+        .select("id, name, reference, description, boundary, status, possession_status, planned_start_at, planned_end_at, elr, route_reference, start_miles, start_chains, end_miles, end_chains, created_at")
         .eq("company_id", membership.company_id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .order("created_at", { ascending: false });
       if (!active) return;
       if (error) {
-        setToast("Could not load saved work-site details. Check company permissions.");
-      } else if (data) {
-        setWorksiteId(data.id);
-        setWorkSiteName(data.name || "");
-        setWorkRef(data.reference || "");
-        setWorkSite(Array.isArray(data.boundary) ? data.boundary : []);
-        setElr(data.elr || "");
-        setRouteReference(data.route_reference || "");
-        setStartMiles(data.start_miles ?? "");
-        setStartChains(data.start_chains ?? "");
-        setEndMiles(data.end_miles ?? "");
-        setEndChains(data.end_chains ?? "");
-        setPossessionStatus(data.possession_status || data.status || "Planning");
-        setPlannedStartAt(data.planned_start_at ? new Date(data.planned_start_at).toISOString().slice(0,16) : "");
-        setPlannedEndAt(data.planned_end_at ? new Date(data.planned_end_at).toISOString().slice(0,16) : "");
+        setToast("Could not load saved possessions. Check company permissions.");
+      } else {
+        const rows = data || [];
+        setCalendarWorksites(rows);
+        if (rows.length) {
+          const first = rows[0];
+          setWorksiteId(first.id);
+          setWorkSiteName(first.name || "");
+          setWorkRef(first.reference || "");
+          setWorkSite(Array.isArray(first.boundary) ? first.boundary : []);
+          setElr(first.elr || "");
+          setRouteReference(first.route_reference || "");
+          setStartMiles(first.start_miles ?? "");
+          setStartChains(first.start_chains ?? "");
+          setEndMiles(first.end_miles ?? "");
+          setEndChains(first.end_chains ?? "");
+          setPossessionStatus(first.possession_status || first.status || "Planning");
+          setPlannedStartAt(first.planned_start_at ? toLocalDateTime(first.planned_start_at) : "");
+          setPlannedEndAt(first.planned_end_at ? toLocalDateTime(first.planned_end_at) : "");
+          setSelectedCalendarDate(first.planned_start_at ? first.planned_start_at.slice(0, 10) : "");
+        } else {
+          setWorksiteId(null);
+          setWorkSiteName("");
+          setWorkRef("");
+          setWorkSite([]);
+          setElr("");
+          setRouteReference("");
+          setStartMiles("");
+          setStartChains("");
+          setEndMiles("");
+          setEndChains("");
+          setPlannedStartAt("");
+          setPlannedEndAt("");
+          setTasks([]);
+          setSelectedId("");
+        }
       }
       setSiteLoading(false);
     };
-    void loadWorksite();
+    void loadWorksites();
     return () => { active = false; };
   }, [membership?.company_id]);
 
@@ -349,9 +372,12 @@ export default function App() {
         savedBoardCount += 1;
         if (!task.dbId) updateTask(task.id, { dbId: boardData.id, demo: false });
       }
+      const { data: refreshedWorksites } = await supabase.from("worksites").select("id, name, reference, description, boundary, status, possession_status, planned_start_at, planned_end_at, elr, route_reference, start_miles, start_chains, end_miles, end_chains, created_at").eq("company_id", membership.company_id).order("created_at", { ascending: false });
+      if (refreshedWorksites) setCalendarWorksites(refreshedWorksites);
+      setSelectedCalendarDate(plannedStartAt ? plannedStartAt.slice(0, 10) : selectedCalendarDate);
       setToast(boardTasks.length
-        ? `Work site saved; ${savedBoardCount} marker board(s) saved too.`
-        : "Work-site details saved to RailSite.");
+        ? `Possession saved; ${savedBoardCount} marker board(s) saved too.`
+        : "Possession saved to the planning calendar.");
       window.setTimeout(() => setToast(""), 4500);
     } catch (err) {
       setToast("Save failed unexpectedly: " + (err?.message || "Please try again."));
@@ -421,11 +447,59 @@ export default function App() {
         });
         setTasks(loaded);
         setSelectedId(loaded[0].id);
+      } else {
+        setTasks([]);
+        setSelectedId("");
       }
     };
     void loadBoards();
     return () => { active = false; };
   }, [membership?.company_id, worksiteId]);
+
+  const startNewPossession = (dateString) => {
+    setSelectedCalendarDate(dateString);
+    setWorksiteId(null);
+    setWorkSiteName("");
+    setWorkRef("");
+    setWorkSite([]);
+    setElr("");
+    setRouteReference("");
+    setStartMiles("");
+    setStartChains("");
+    setEndMiles("");
+    setEndChains("");
+    setPossessionStatus("Planning");
+    setPlannedStartAt("");
+    setPlannedEndAt("");
+    setTasks([]);
+    setSelectedId("");
+    setPhotoPreviews({});
+    setToast("New possession draft started. Enter the planned start and finish times, ELR, route and mileage, then save.");
+    window.setTimeout(() => setToast(""), 5000);
+  };
+
+  const openPossession = (row) => {
+    setWorksiteId(row.id);
+    setWorkSiteName(row.name || "");
+    setWorkRef(row.reference || "");
+    setWorkSite(Array.isArray(row.boundary) ? row.boundary : []);
+    setElr(row.elr || "");
+    setRouteReference(row.route_reference || "");
+    setStartMiles(row.start_miles ?? "");
+    setStartChains(row.start_chains ?? "");
+    setEndMiles(row.end_miles ?? "");
+    setEndChains(row.end_chains ?? "");
+    setPossessionStatus(row.possession_status || row.status || "Planning");
+    setPlannedStartAt(row.planned_start_at ? toLocalDateTime(row.planned_start_at) : "");
+    setPlannedEndAt(row.planned_end_at ? toLocalDateTime(row.planned_end_at) : "");
+    setSelectedCalendarDate(row.planned_start_at ? row.planned_start_at.slice(0, 10) : "");
+    setWorkSite([]);
+    setTasks([]);
+    setSelectedId("");
+    setPhotoPreviews({});
+    setToast("Possession loaded. Changes will be saved to this calendar entry.");
+    window.setTimeout(() => setToast(""), 3500);
+  };
 
   const handleSignOut = async () => {
     if (!supabase) return;
@@ -499,6 +573,38 @@ export default function App() {
     </header>
 
     <main className="workspace">
+      <section className="planning-calendar">
+        <div className="calendar-heading">
+          <div><div className="eyebrow">POSSESSION PLANNING</div><h2>Possession calendar</h2><p>Select a date to plan a new possession, or open an existing one.</p></div>
+          <div className="calendar-actions">
+            <button className="btn btn-secondary" onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth()-1, 1))} aria-label="Previous month">‹</button>
+            <strong>{calendarMonth.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}</strong>
+            <button className="btn btn-secondary" onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth()+1, 1))} aria-label="Next month">›</button>
+            <button className="btn btn-primary" onClick={() => startNewPossession(new Date().toLocaleDateString("en-CA"))}>+ New possession</button>
+          </div>
+        </div>
+        <div className="calendar-weekdays">{["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(day => <div key={day}>{day}</div>)}</div>
+        <div className="calendar-grid">
+          {Array.from({ length: 42 }, (_, index) => {
+            const first = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
+            const offset = (first.getDay() + 6) % 7;
+            const dayDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), index - offset + 1);
+            const dateKey = `${dayDate.getFullYear()}-${String(dayDate.getMonth()+1).padStart(2,"0")}-${String(dayDate.getDate()).padStart(2,"0")}`;
+            const inMonth = dayDate.getMonth() === calendarMonth.getMonth();
+            const entries = calendarWorksites.filter(item => item.planned_start_at && new Date(item.planned_start_at).toLocaleDateString("en-CA") === dateKey);
+            return <div key={dateKey} className={`calendar-day ${inMonth ? "" : "calendar-day-muted"} ${selectedCalendarDate === dateKey ? "calendar-day-selected" : ""}`}>
+              <button className="calendar-day-number" onClick={() => startNewPossession(dateKey)} aria-label={`Plan possession on ${dayDate.toLocaleDateString("en-GB")}`}>{dayDate.getDate()}</button>
+              <div className="calendar-day-events">
+                {entries.map(item => <button key={item.id} className={`calendar-event event-${statusClass(item.possession_status || item.status || "Planning")}`} onClick={() => openPossession(item)} title={item.name}>
+                  <span>{item.name || "Untitled possession"}</span>
+                  <small>{item.elr || "ELR TBC"}{item.start_miles !== null && item.start_miles !== undefined ? ` · ${item.start_miles}m ${String(item.start_chains ?? 0).padStart(2,"0")}ch` : ""}</small>
+                </button>)}
+              </div>
+            </div>;
+          })}
+        </div>
+        <div className="calendar-legend"><span><i className="legend-planning"/> Planning</span><span><i className="legend-active"/> In progress</span><span><i className="legend-complete"/> Complete</span><span>{calendarWorksites.length} saved possession(s)</span></div>
+      </section>
       <section className="dashboard-overview">
         <div className="dashboard-heading">
           <div><div className="eyebrow">OPERATIONS CONTROL</div><h1>PICOP dashboard</h1><p>Work-site status, marker-board progress and railway location reference.</p></div>
