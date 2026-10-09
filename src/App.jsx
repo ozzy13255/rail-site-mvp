@@ -750,7 +750,7 @@ export default function App() {
             <button className="btn btn-secondary" onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth()-1, 1))} aria-label="Previous month">‹</button>
             <strong>{calendarMonth.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}</strong>
             <button className="btn btn-secondary" onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth()+1, 1))} aria-label="Next month">›</button>
-            <button className="btn btn-primary" onClick={() => startNewPossession(toLocalDateTime(new Date()).slice(0, 10))}>+ New possession</button>
+            {["owner", "admin", "planner"].includes(membership.role) && <button className="btn btn-primary" onClick={() => startNewPossession(toLocalDateTime(new Date()).slice(0, 10))}>+ New possession</button>}
           </div>
         </div>
         <div className="calendar-weekdays">{["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(day => <div key={day}>{day}</div>)}</div>
@@ -763,10 +763,10 @@ export default function App() {
             const inMonth = dayDate.getMonth() === calendarMonth.getMonth();
             const entries = calendarWorksites.filter(item => item.planned_start_at && toLocalDateTime(item.planned_start_at).slice(0, 10) === dateKey);
             return <div key={dateKey} className={`calendar-day ${inMonth ? "" : "calendar-day-muted"} ${selectedCalendarDate === dateKey ? "calendar-day-selected" : ""}`}>
-              <button className="calendar-day-number" onClick={() => startNewPossession(dateKey)} aria-label={`Plan possession on ${dayDate.toLocaleDateString("en-GB")}`}>{dayDate.getDate()}</button>
-              <button className="calendar-add-day" onClick={() => startNewPossession(dateKey)} aria-label={`Add possession on ${dayDate.toLocaleDateString("en-GB")}`}>+ Plan</button>
+              <button className="calendar-day-number" onClick={() => ["owner", "admin", "planner"].includes(membership.role) ? startNewPossession(dateKey) : setSelectedCalendarDate(dateKey)} aria-label={`${["owner", "admin", "planner"].includes(membership.role) ? "Plan possession on" : "Select"} ${dayDate.toLocaleDateString("en-GB")}`}>{dayDate.getDate()}</button>
+              {["owner", "admin", "planner"].includes(membership.role) && <button className="calendar-add-day" onClick={() => startNewPossession(dateKey)} aria-label={`Add possession on ${dayDate.toLocaleDateString("en-GB")}`}>+ Plan</button>}
               <div className="calendar-day-events">
-                {entries.map(item => <button key={item.id} className={`calendar-event event-${statusClass(item.possession_status || item.status || "Planning")}`} onClick={() => openPossession(item)} title={item.name}>
+                {entries.map(item => <button key={item.id} className={`calendar-event event-${statusClass(item.possession_status || item.status || "Planning")}`} onClick={() => ["owner", "admin", "planner"].includes(membership.role) ? openPossession(item) : setToast("PICOP possession acceptance and assigned-board workflow is being connected next.")} title={item.name}>
                   <span>{item.name || "Untitled possession"}</span>
                   <small>{(item.possession_status || item.status || "").toLowerCase() === "cancelled" ? "CANCELLED · " : ""}{item.elr || "ELR TBC"}{item.start_miles !== null && item.start_miles !== undefined ? ` · ${item.start_miles}m ${String(item.start_chains ?? 0).padStart(2,"0")}ch` : ""}</small>
                 </button>)}
@@ -776,7 +776,7 @@ export default function App() {
         </div>
         <div className="calendar-legend"><span><i className="legend-planning"/> Planning</span><span><i className="legend-active"/> In progress</span><span><i className="legend-complete"/> Complete</span><span>{calendarWorksites.length} saved possession(s)</span></div>
       </section>
-      {possessionEditorOpen && <div className="possession-modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) { setPossessionEditorOpen(false); setEditorPlacingBoard(false); } }}>
+      {possessionEditorOpen && ["owner", "admin", "planner"].includes(membership.role) && <div className="possession-modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) { setPossessionEditorOpen(false); setEditorPlacingBoard(false); } }}>
         <section className="possession-modal" role="dialog" aria-modal="true" aria-labelledby="possession-editor-title">
           <div className="possession-modal-header">
             <div><div className="eyebrow">POSSESSION PLANNING</div><h2 id="possession-editor-title">{worksiteId ? "Edit possession" : "Plan a new possession"}</h2><p>{selectedCalendarDate ? new Date(`${selectedCalendarDate}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "Set the date, time and railway mileage"}</p></div>
