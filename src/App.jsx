@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 import { MapContainer, TileLayer, Marker, Popup, Polygon, LayersControl, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet-draw";
@@ -10,6 +11,63 @@ const initialTasks = [
   { id: "MB-02", label: "Marker board 2", assignee: "Jamie Taylor", status: "Photo submitted", position: [52.9150, -0.6358], notes: "Upload a clear photo showing the board in position." },
   { id: "MB-03", label: "Marker board 3", assignee: "Unassigned", status: "Unassigned", position: [52.9170, -0.6288], notes: "" }
 ];
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+
+function LoginScreen({ configured, loading, error, onSignIn, onResetPassword }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [resetMode, setResetMode] = useState(false);
+
+  const submit = async (event) => {
+    event.preventDefault();
+    setBusy(true);
+    setMessage("");
+    try {
+      if (resetMode) {
+        await onResetPassword(email);
+        setMessage("If that email belongs to an account, a password-reset link has been sent.");
+      } else {
+        await onSignIn(email, password);
+      }
+    } catch (err) {
+      setMessage(err?.message || "Unable to complete that request. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return <main className="login-page">
+    <section className="login-card">
+      <div className="login-brand-mark">R</div>
+      <div className="login-eyebrow">SECURE WORK-SITE COORDINATION</div>
+      <h1>Welcome to RailSite</h1>
+      <p className="login-intro">Sign in with your RailSite account to access your company work sites and assigned tasks.</p>
+      {!configured && <div className="login-alert">Supabase is not configured for this deployment. Check the Vercel environment variables <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_PUBLISHABLE_KEY</code>, then redeploy.</div>}
+      {(error || message) && <div className={error ? "login-alert" : "login-message"} role="status">{error || message}</div>}
+      <form onSubmit={submit}>
+        <label className="login-label" htmlFor="login-email">Email address</label>
+        <input id="login-email" className="login-input" type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.co.uk" />
+        {!resetMode && <>
+          <label className="login-label" htmlFor="login-password">Password</label>
+          <input id="login-password" className="login-input" type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter your password" />
+        </>}
+        <button className="login-submit" type="submit" disabled={!configured || busy || loading}>
+          {busy ? "Please wait…" : resetMode ? "Send reset link" : "Sign in securely"}
+        </button>
+      </form>
+      <button className="login-link" type="button" onClick={() => { setResetMode(v => !v); setMessage(""); }}>
+        {resetMode ? "Back to sign in" : "Forgot your password?"}
+      </button>
+      <div className="login-footer"><span className="online-dot"/> Protected access · RailSite</div>
+    </section>
+  </main>;
+}
+
 const statusClass = (status) => status.toLowerCase().replaceAll(" ", "-");
 const boardIcon = L.divIcon({
   className: "board-marker-wrap",
@@ -74,6 +132,10 @@ function MapClickHandler({ enabled, onSelect }) {
 }
 
 export default function App() {
+  const [session, setSession] = useState(null);
+  const [membership, setMembership] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState("");
   const [tasks, setTasks] = useState(initialTasks);
   const [selectedId, setSelectedId] = useState("MB-01");
   const [workSite, setWorkSite] = useState([[52.9115,-0.648],[52.9185,-0.648],[52.9185,-0.625],[52.9115,-0.625]]);
@@ -85,6 +147,78 @@ export default function App() {
   const [filter, setFilter] = useState("All tasks");
   const [toast, setToast] = useState("");
   const [photoPreviews, setPhotoPreviews] = useState({});
+
+
+  useEffect(() => {
+    if (!supabase) {
+      setAuthLoading(false);
+      return;
+    }
+    let active = true;
+    const loadMembership = async (currentSession) => {
+      if (!currentSession) {
+        if (active) {
+          setSession(null);
+          setMembership(null);
+          setAuthLoading(false);
+        }
+        return;
+      }
+      if (active) {
+        setSession(currentSession);
+        setAuthError("");
+      }
+      const { data, error } = await supabase
+        .from("company_members")
+        .select("company_id, role, companies(name)")
+        .eq("user_id", currentSession.user.id)
+        .maybeSingle();
+      if (!active) return;
+      if (error) {
+        setMembership(null);
+        setAuthError("Signed in, but your company access could not be checked. Please contact the RailSite owner.");
+      } else if (!data) {
+        setMembership(null);
+        setAuthError("Your account is not assigned to a RailSite company yet. Ask the owner to add you.");
+      } else {
+        setMembership(data);
+        setAuthError("");
+      }
+      setAuthLoading(false);
+    };
+
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (error && active) setAuthError("Unable to check your sign-in session.");
+      return loadMembership(data?.session || null);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+      void loadMembership(currentSession);
+    });
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleSignIn = async (email, password) => {
+    if (!supabase) throw new Error("Sign-in is not configured for this deployment.");
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    if (error) throw new Error(error.message === "Invalid login credentials" ? "Email or password is incorrect." : error.message);
+  };
+
+  const handleResetPassword = async (email) => {
+    if (!supabase) throw new Error("Sign-in is not configured for this deployment.");
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: window.location.origin
+    });
+    if (error) throw error;
+  };
+
+  const handleSignOut = async () => {
+    if (!supabase) return;
+    const { error } = await supabase.auth.signOut();
+    if (error) setAuthError("Could not sign out. Please try again.");
+  };
 
   const selected = tasks.find(t => t.id === selectedId) || tasks[0];
   const updateTask = (id, patch) => setTasks(prev => prev.map(t => t.id === id ? { ...t, ...patch } : t));
@@ -133,6 +267,9 @@ export default function App() {
   const visibleTasks = useMemo(() => filter === "All tasks" ? tasks : tasks.filter(t => t.status === filter), [tasks, filter]);
   const count = (status) => tasks.filter(t => t.status === status).length;
 
+  if (authLoading) return <main className="login-page"><section className="login-card"><div className="login-brand-mark">R</div><h1>Opening RailSite…</h1><p className="login-intro">Checking your secure session.</p></section></main>;
+  if (!session || !membership) return <LoginScreen configured={Boolean(supabase)} loading={authLoading} error={authError} onSignIn={handleSignIn} onResetPassword={handleResetPassword} />;
+
   return <div className="app-shell">
     <header className="topbar">
       <div className="brand">
@@ -140,8 +277,9 @@ export default function App() {
         <div><div className="brand-name">RAILSITE</div><div className="brand-sub">WORK-SITE COORDINATION</div></div>
       </div>
       <div className="topbar-right">
-        <div className="role-chip"><span className="online-dot"/> PICOP VIEW</div>
-        <button className="btn btn-quiet" onClick={() => { setToast("Authentication is not connected in this starter build."); window.setTimeout(() => setToast(""), 3000); }}>Sign in</button>
+        <div className="role-chip"><span className="online-dot"/> {(membership.role || "member").toUpperCase()} VIEW</div>
+        <div className="signed-in-user">{session.user.email}</div>
+        <button className="btn btn-quiet" onClick={handleSignOut}>Sign out</button>
       </div>
     </header>
 
