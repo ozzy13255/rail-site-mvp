@@ -167,6 +167,12 @@ export default function App() {
   const [photoPreviews, setPhotoPreviews] = useState({});
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activePage, setActivePage] = useState("overview");
+  const [companyProfiles, setCompanyProfiles] = useState([]);
+  const [profilesLoading, setProfilesLoading] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profileRole, setProfileRole] = useState("planner");
+  const [profileSaving, setProfileSaving] = useState(false);
 
 
   useEffect(() => {
@@ -202,6 +208,7 @@ export default function App() {
         setAuthError("Your account is not assigned to a RailSite company yet. Ask the owner to add you.");
       } else {
         setMembership(data);
+        setActivePage(data.role === "member" ? "boards" : "overview");
         setAuthError("");
       }
       setAuthLoading(false);
@@ -288,6 +295,44 @@ export default function App() {
     void loadWorksites();
     return () => { active = false; };
   }, [membership?.company_id]);
+
+  useEffect(() => {
+    if (!supabase || !membership?.company_id || !["owner", "admin"].includes(membership.role)) return;
+    let active = true;
+    const loadProfiles = async () => {
+      setProfilesLoading(true);
+      const { data, error } = await supabase.from("company_members")
+        .select("user_id, role, email, display_name, created_at")
+        .eq("company_id", membership.company_id).order("created_at", { ascending: true });
+      if (!active) return;
+      if (error) setToast("Could not load company profiles: " + error.message);
+      else setCompanyProfiles(data || []);
+      setProfilesLoading(false);
+    };
+    if (activePage === "profiles") void loadProfiles();
+    return () => { active = false; };
+  }, [membership?.company_id, membership?.role, activePage]);
+
+  const createProfile = async (event) => {
+    event.preventDefault();
+    if (!supabase || !membership?.company_id || !["owner", "admin"].includes(membership.role)) return;
+    setProfileSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-profile", {
+        body: { email: profileEmail.trim(), display_name: profileName.trim(), role: profileRole, company_id: membership.company_id }
+      });
+      if (error) throw new Error(data?.error || error.message || "Could not create profile.");
+      if (data?.error) throw new Error(data.error);
+      setToast(data?.message || "Profile created and invitation sent.");
+      setProfileName(""); setProfileEmail(""); setProfileRole("planner");
+      const { data: refreshed, error: refreshError } = await supabase.from("company_members")
+        .select("user_id, role, email, display_name, created_at")
+        .eq("company_id", membership.company_id).order("created_at", { ascending: true });
+      if (!refreshError && refreshed) setCompanyProfiles(refreshed);
+    } catch (error) {
+      setToast(error?.message || "Could not create profile. Please try again.");
+    } finally { setProfileSaving(false); }
+  };
 
   // Keep the shared company calendar current for other signed-in members.
   // Realtime is used when available, with a lightweight polling fallback.
@@ -688,14 +733,16 @@ export default function App() {
       <aside className="app-sidebar" aria-label="Main navigation">
         <button className="sidebar-toggle" type="button" onClick={() => setSidebarCollapsed(v => !v)} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}><span>{sidebarCollapsed ? "☰" : "‹"}</span><span className="sidebar-label">{sidebarCollapsed ? "" : "Collapse menu"}</span></button>
         <div className="sidebar-section-label">WORKSPACE</div>
-        <button className={`sidebar-link ${activePage === "overview" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("overview")}><span className="sidebar-icon">▦</span><span className="sidebar-label">Overview</span></button>
-        <button className={`sidebar-link ${activePage === "calendar" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("calendar")}><span className="sidebar-icon">▦</span><span className="sidebar-label">Possession calendar</span></button>
-        <button className={`sidebar-link ${activePage === "map" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("map")}><span className="sidebar-icon">⌖</span><span className="sidebar-label">Worksites &amp; map</span></button>
-        <button className={`sidebar-link ${activePage === "boards" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("boards")}><span className="sidebar-icon">⚑</span><span className="sidebar-label">Marker boards &amp; tasks</span></button>
+        {membership.role !== "member" && <button className={`sidebar-link ${activePage === "overview" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("overview")}><span className="sidebar-icon">▦</span><span className="sidebar-label">{membership.role === "planner" ? "Planning overview" : membership.role === "picop" ? "PICOP overview" : "Overview"}</span></button>}
+        {membership.role !== "member" && <button className={`sidebar-link ${activePage === "calendar" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("calendar")}><span className="sidebar-icon">▦</span><span className="sidebar-label">Possession calendar</span></button>}
+        {["owner", "admin"].includes(membership.role) && <button className={`sidebar-link ${activePage === "map" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("map")}><span className="sidebar-icon">⌖</span><span className="sidebar-label">Worksites &amp; map</span></button>}
+        {membership.role !== "planner" && <button className={`sidebar-link ${activePage === "boards" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("boards")}><span className="sidebar-icon">⚑</span><span className="sidebar-label">{membership.role === "member" ? "My board tasks" : "Marker boards &amp; tasks"}</span></button>}
+        {["owner", "admin"].includes(membership.role) && <button className={`sidebar-link ${activePage === "profiles" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("profiles")}><span className="sidebar-icon">♙</span><span className="sidebar-label">Manage profiles</span></button>}
         <div className="sidebar-spacer"></div><div className="sidebar-footer"><span className="online-dot"/><span className="sidebar-label">Company workspace</span></div>
       </aside>
       <main className="workspace">
       {activePage === "calendar" && <>
+      {["owner", "admin", "planner"].includes(membership.role) && null}
       <section className="planning-calendar" id="calendar-screen">
         <div className="calendar-heading">
           <div><div className="eyebrow">POSSESSION PLANNING</div><h2>Possession calendar</h2><p>Select a date to plan a new possession, or open an existing one.</p></div>
@@ -782,9 +829,9 @@ export default function App() {
         </section>
       </div>}
       </>}
-      {activePage === "overview" && <section className="dashboard-overview" id="overview-screen">
+      {membership.role !== "member" && activePage === "overview" && <section className="dashboard-overview" id="overview-screen">
         <div className="dashboard-heading">
-          <div><div className="eyebrow">OPERATIONS CONTROL</div><h1>PICOP dashboard</h1><p>Work-site status, marker-board progress and railway location reference.</p></div>
+          <div><div className="eyebrow">OPERATIONS CONTROL</div><h1>{membership.role === "planner" ? "Planning overview" : "PICOP dashboard"}</h1><p>{membership.role === "planner" ? "Plan possessions, manage the calendar and track PICOP responses." : "Work-site status, marker-board progress and railway location reference."}</p></div>
           <div className="dashboard-live"><span className="online-dot"/><span>SESSION ACTIVE</span><small>{membership.companies?.name || "Company workspace"}</small></div>
         </div>
         <div className="overview-cards">
@@ -805,7 +852,7 @@ export default function App() {
           </div>
         </div>
       </section>}
-      {activePage === "map" && <section className="map-column" id="map-screen">
+      {["owner", "admin"].includes(membership.role) && activePage === "map" && <section className="map-column" id="map-screen">
         <div className="site-toolbar">
           <div className="site-title-group">
             <div className="eyebrow">ACTIVE WORK SITE</div>
@@ -873,7 +920,7 @@ export default function App() {
         </div>
       </section>}
 
-      {activePage === "boards" && <aside className="side-panel" id="boards-screen">
+      {["owner", "admin", "picop", "member"].includes(membership.role) && activePage === "boards" && <aside className="side-panel" id="boards-screen">
         <div className="panel-heading">
           <div><div className="eyebrow">PICOP DASHBOARD</div><h1>Work-site tasks</h1></div>
           <span className="count-badge">{tasks.length}</span>
@@ -948,6 +995,23 @@ export default function App() {
         </div>
         <div className="panel-bottom-note"><span className="lock-icon">▣</span> Demo data only · Changes are not saved between reloads</div>
       </aside>}
+      {activePage === "profiles" && ["owner", "admin"].includes(membership.role) && <section className="profiles-page">
+        <div className="dashboard-heading"><div><div className="eyebrow">COMPANY ACCESS</div><h1>Manage profiles</h1><p>Create accounts and assign the correct RailSite role. New users receive an invitation email to set their password.</p></div><div className="dashboard-live"><span className="online-dot"/><span>{companyProfiles.length} PROFILES</span></div></div>
+        <div className="profiles-layout">
+          <form className="profile-create-card" onSubmit={createProfile}>
+            <div className="profile-card-heading"><span className="overview-icon">＋</span><div><h2>Create a profile</h2><p>Invitation sent to the user's email address</p></div></div>
+            <label>Full name<input value={profileName} onChange={e => setProfileName(e.target.value)} required placeholder="e.g. Jamie Taylor" autoComplete="name"/></label>
+            <label>Work email address<input type="email" value={profileEmail} onChange={e => setProfileEmail(e.target.value)} required placeholder="name@company.co.uk" autoComplete="email"/></label>
+            <label>Profile type<select value={profileRole} onChange={e => setProfileRole(e.target.value)}><option value="planner">Planner — possessions and calendar</option><option value="picop">PICOP — acceptance and board verification</option><option value="member">Board-placement user — assigned tasks</option></select></label>
+            <div className="profile-role-note">{profileRole === "planner" ? "Can create, schedule, edit, cancel and delete work sites." : profileRole === "picop" ? "Can review assigned possessions and manage marker-board verification." : "Can view assigned board tasks and submit placement evidence."}</div>
+            <button className="btn btn-primary btn-full" type="submit" disabled={profileSaving}>{profileSaving ? "Creating profile…" : "Create profile & send invitation"}</button>
+          </form>
+          <section className="profile-list-card"><div className="profile-card-heading"><span className="overview-icon">♙</span><div><h2>Company profiles</h2><p>Role assignments for this workspace</p></div></div>
+            {profilesLoading ? <p className="profile-empty">Loading profiles…</p> : companyProfiles.length === 0 ? <p className="profile-empty">No profiles found.</p> : <div className="profile-list">{companyProfiles.map(profile => <div className="profile-row" key={profile.user_id}><div className="profile-avatar">{(profile.display_name || profile.email || "?").slice(0,1).toUpperCase()}</div><div className="profile-row-main"><strong>{profile.display_name || profile.email || "Company user"}</strong><small>{profile.email || "Email not recorded"}</small></div><span className={`profile-role-badge role-${profile.role}`}>{profile.role === "member" ? "BOARD USER" : profile.role.toUpperCase()}</span></div>)}</div>}
+          </section>
+        </div>
+        <p className="profile-security-note"><strong>Access control:</strong> Profile invitations are created by a protected server function. Do not share passwords; each user sets their own password from the invitation.</p>
+      </section>}
       </main>
     </div>
     <footer className="app-footer"><span>RAILSITE MVP <b>0.1.0</b></span><span>Prototype for workflow review · Not for operational use</span></footer>
