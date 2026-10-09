@@ -128,3 +128,24 @@ body{background:#0b1420;color:#e8eef4}
 .app-footer{color:#71899d}
 @media(max-width:1000px){.overview-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.workspace{padding:14px}.map-wrap{height:60vh}}
 @media(max-width:600px){.workspace{padding:9px;gap:11px}.dashboard-heading{align-items:flex-start}.dashboard-heading h1{font-size:22px}.dashboard-heading p{max-width:260px;line-height:1.5}.dashboard-live{padding:8px;font-size:8px}.overview-cards{gap:8px}.overview-card{padding:12px}.overview-card-top{gap:7px;margin-bottom:12px}.overview-icon{width:26px;height:26px;font-size:15px}.overview-label{font-size:8px;letter-spacing:.7px}.overview-number{font-size:26px}.overview-main-value{font-size:14px}.overview-card-foot{font-size:9px}.map-wrap{height:54vh;min-height:350px}.site-toolbar{border-radius:0}.rail-mileage-panel{border-top:1px solid #293b4d}.map-footer{border-radius:0}.side-panel{border-radius:10px}}
+
+
+/* Possession planning and action queue */
+.possession-controls{display:grid;grid-template-columns:minmax(150px,.8fr) minmax(180px,1fr) minmax(180px,1fr) auto;align-items:end;gap:10px;padding:13px 15px;background:#122333;border:1px solid #293f52;border-radius:10px}
+.possession-controls label{display:flex;flex-direction:column;gap:6px;color:#a9bdcc;font-size:10px;font-weight:700}
+.possession-controls select,.possession-controls input{width:100%;min-width:0;border:1px solid #354d61;border-radius:6px;background:#0c1925;color:#edf3f7;padding:10px;font-size:11px;color-scheme:dark}
+.possession-save{min-height:36px}
+.outstanding-strip{display:grid;grid-template-columns:minmax(190px,.75fr) minmax(0,2fr);align-items:center;gap:16px;padding:13px 15px;background:#101e2b;border:1px solid #293b4d;border-top:0;border-radius:0 0 10px 10px}
+.outstanding-title{display:flex;align-items:center;gap:10px;min-width:0}
+.outstanding-mark{display:grid;place-items:center;flex-shrink:0;width:30px;height:30px;border-radius:8px;background:#392f20;border:1px solid #695333;color:#f0bf65;font-weight:900}
+.outstanding-title strong,.outstanding-title small{display:block}
+.outstanding-title strong{font-size:11px;color:#e9f0f5}
+.outstanding-title small{font-size:9px;color:#8da3b4;margin-top:4px}
+.outstanding-items{display:flex;flex-wrap:wrap;gap:7px}
+.action-chip{display:inline-flex;align-items:center;min-height:28px;padding:6px 9px;border-radius:6px;border:1px solid;font-size:9px;font-weight:700;line-height:1.35}
+.action-warning{background:#332b1e;border-color:#66502f;color:#f0c46e}
+.action-neutral{background:#1b2c3a;border-color:#344b5d;color:#a9c0d0}
+.action-clear{background:#17342d;border-color:#2a5b4d;color:#82d4b3}
+.action-danger{background:#3a2325;border-color:#734044;color:#ffb4b4}
+@media(max-width:900px){.possession-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.possession-save{width:100%}.outstanding-strip{grid-template-columns:1fr;gap:12px}}
+@media(max-width:520px){.possession-controls{gap:8px;padding:10px}.possession-controls label{font-size:9px}.possession-controls input,.possession-controls select{padding:9px 7px;font-size:10px}.outstanding-strip{padding:12px}.dashboard-heading{gap:8px}.dashboard-live small{max-width:110px;overflow:hidden;text-overflow:ellipsis}}
