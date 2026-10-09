@@ -217,6 +217,7 @@ export default function App() {
   const [picopResponse, setPicopResponse] = useState("pending");
   const [notifications, setNotifications] = useState([]);
   const [workflowBusyId, setWorkflowBusyId] = useState("");
+  const [overviewList, setOverviewList] = useState("");
 
 
   useEffect(() => {
@@ -958,6 +959,15 @@ export default function App() {
 
   const visibleTasks = useMemo(() => filter === "All tasks" ? tasks : tasks.filter(t => t.status === filter), [tasks, filter]);
   const count = (status) => tasks.filter(t => t.status === status).length;
+  const now = Date.now();
+  const activeWorksites = calendarWorksites.filter(item => {
+    const start = item.planned_start_at ? new Date(item.planned_start_at).getTime() : NaN;
+    const end = item.planned_end_at ? new Date(item.planned_end_at).getTime() : NaN;
+    const status = String(item.possession_status || item.status || "").toLowerCase();
+    return Number.isFinite(start) && Number.isFinite(end) && now >= start && now < end && !["cancelled", "complete", "completed", "suspended"].includes(status);
+  });
+  const awaitingPicopWorksites = calendarWorksites.filter(item => (item.picop_response || "pending") === "pending" && String(item.possession_status || item.status || "").toLowerCase() !== "cancelled");
+  const confirmedPicopWorksites = calendarWorksites.filter(item => item.picop_response === "accepted" && String(item.possession_status || item.status || "").toLowerCase() !== "cancelled");
 
   if (authLoading) return <main className="login-page"><section className="login-card"><div className="login-brand-mark">R</div><h1>Opening RailSite…</h1><p className="login-intro">Checking your secure session.</p></section></main>;
    if (session && mustChangePassword) return <FirstLoginPasswordScreen email={session.user.email || ""} onChangePassword={handleFirstLoginPasswordChange} />;
@@ -1042,7 +1052,7 @@ export default function App() {
               <label>Possession status<select value={possessionStatus} onChange={e => setPossessionStatus(e.target.value)}><option>Planning</option><option>Briefing</option><option>In progress</option><option>Suspended</option><option>Complete</option><option>Cancelled</option></select></label>
               <label>Assign PICOP<select value={assignedPicopEmail} onChange={e => { setAssignedPicopEmail(e.target.value); setPicopResponse("pending"); }}><option value="">Select a PICOP…</option>{picopOptions.map(profile => <option key={profile.user_id} value={profile.email}>{profile.display_name ? profile.display_name + " — " : ""}{profile.email}</option>)}</select></label>
               <div className="possession-time-row">
-                <label>Exact start date &amp; time<input type="datetime-local" value={plannedStartAt} onChange={e => { setPlannedStartAt(e.target.value); setSelectedCalendarDate(e.target.value.slice(0,10)); }} required /></label>
+                <label>Exact start date &amp; time<input type="datetime-local" value={plannedStartAt || (selectedCalendarDate ? `${selectedCalendarDate}T00:00` : "")} onChange={e => { setPlannedStartAt(e.target.value); setSelectedCalendarDate(e.target.value.slice(0,10)); }} required /></label>
                 <label>Exact finish date &amp; time<input type="datetime-local" value={plannedEndAt} onChange={e => setPlannedEndAt(e.target.value)} required /></label>
               </div>
             </div>
@@ -1090,20 +1100,23 @@ export default function App() {
           <div className="dashboard-live"><span className="online-dot"/><span>SESSION ACTIVE</span><small>{membership.companies?.name || "Company workspace"}</small></div>
         </div>
         <div className="overview-cards">
-          <article className="overview-card overview-card-site"><div className="overview-card-top"><span className="overview-icon">⌖</span><span className="overview-label">ACTIVE WORK SITE</span></div><strong className="overview-main-value">{workSiteName || "Unnamed work site"}</strong><div className="overview-card-foot">{workRef || "No work-site reference"} <span className="overview-status-dot"/> {worksiteId ? "SAVED" : "DRAFT"}</div></article>
-          <article className="overview-card"><div className="overview-card-top"><span className="overview-icon">⚑</span><span className="overview-label">MARKER BOARDS</span></div><strong className="overview-number">{tasks.length}</strong><div className="overview-card-foot">{count("Unassigned")} unassigned · {count("Verified")} verified</div><div className="overview-progress"><span style={{width: tasks.length ? `${Math.round(count("Verified") / tasks.length * 100)}%` : "0%"}}/></div></article>
-          <article className="overview-card"><div className="overview-card-top"><span className="overview-icon">◷</span><span className="overview-label">AWAITING REVIEW</span></div><strong className="overview-number">{count("Photo submitted") + count("Awaiting PICOP verification")}</strong><div className="overview-card-foot">Photo submissions and verification requests</div></article>
-          <article className="overview-card"><div className="overview-card-top"><span className="overview-icon">⇄</span><span className="overview-label">RAILWAY REFERENCE</span></div><strong className="overview-main-value">{elr || "ELR not set"}</strong><div className="overview-card-foot">{routeReference || "Route reference not set"}{startMiles !== "" || startChains !== "" ? ` · ${startMiles || "0"}m ${String(startChains || "0").padStart(2,"0")}ch` : ""}</div></article>
+          <article className="overview-card overview-card-site"><div className="overview-card-top"><span className="overview-icon">⌖</span><span className="overview-label">ACTIVE WORK SITE</span></div>
+            {activeWorksites.length ? activeWorksites.map(item => <div className="overview-site-item" key={item.id}><strong className="overview-main-value">{item.name || "Unnamed work site"}</strong><div className="overview-card-foot">{item.reference || "No work-site reference"} · {new Date(item.planned_start_at).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}–{new Date(item.planned_end_at).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</div></div>) : <><strong className="overview-main-value">No active work sites</strong><div className="overview-card-foot">A possession is active only between its planned start and finish times.</div></>}
+          </article>
+          <button type="button" className="overview-card overview-card-clickable" onClick={() => setOverviewList(overviewList === "awaiting" ? "" : "awaiting")} aria-expanded={overviewList === "awaiting"}><div className="overview-card-top"><span className="overview-icon">◷</span><span className="overview-label">AWAITING PICOP CONFIRMATION</span></div><strong className="overview-number">{awaitingPicopWorksites.length}</strong><div className="overview-card-foot">Click to view possessions awaiting a PICOP response</div></button>
+          <button type="button" className="overview-card overview-card-clickable" onClick={() => setOverviewList(overviewList === "confirmed" ? "" : "confirmed")} aria-expanded={overviewList === "confirmed"}><div className="overview-card-top"><span className="overview-icon">✓</span><span className="overview-label">CONFIRMED POSSESSIONS</span></div><strong className="overview-number">{confirmedPicopWorksites.length}</strong><div className="overview-card-foot">Possessions accepted by their assigned PICOP</div></button>
         </div>
+        {overviewList && <section className="overview-possession-list" aria-live="polite">
+          <div className="overview-possession-list-heading"><h2>{overviewList === "awaiting" ? "Possessions awaiting PICOP confirmation" : "Confirmed possessions"}</h2><button type="button" className="btn btn-secondary" onClick={() => setOverviewList("")}>Close</button></div>
+          {(overviewList === "awaiting" ? awaitingPicopWorksites : confirmedPicopWorksites).map(item => <button type="button" className="overview-possession-row" key={item.id} onClick={() => { openPossession(item); setActivePage("calendar"); }}><span><strong>{item.name || "Untitled possession"}</strong><small>{item.reference || "No reference"} · {item.assigned_picop_email || "PICOP not assigned"}</small></span><span className={item.picop_response === "accepted" ? "status-pill verified" : "status-pill assigned"}>{item.picop_response === "accepted" ? "CONFIRMED" : "AWAITING"}</span><small>{item.planned_start_at ? new Date(item.planned_start_at).toLocaleString("en-GB",{dateStyle:"medium",timeStyle:"short"}) : "Start time not set"}</small></button>)}
+          {(overviewList === "awaiting" ? awaitingPicopWorksites : confirmedPicopWorksites).length === 0 && <p className="overview-possession-empty">{overviewList === "awaiting" ? "No possessions are awaiting PICOP confirmation." : "No possessions have been confirmed yet."}</p>}
+        </section>}
         <div className="outstanding-strip">
-          <div className="outstanding-title"><span className="outstanding-mark">!</span><div><strong>Outstanding actions</strong><small>Items that may need PICOP attention</small></div></div>
+          <div className="outstanding-title"><span className="outstanding-mark">!</span><div><strong>Outstanding actions</strong><small>Possession planning checks</small></div></div>
           <div className="outstanding-items">
-            {tasks.length === 0 && <span className="action-chip action-neutral">No marker boards added</span>}
-            {tasks.some(task => task.status === "Unassigned") && <span className="action-chip action-warning">{count("Unassigned")} board(s) unassigned</span>}
-            {(count("Photo submitted") + count("Awaiting PICOP verification")) > 0 && <span className="action-chip action-warning">{count("Photo submitted") + count("Awaiting PICOP verification")} awaiting review</span>}
-            {(!tasks.some(task => task.status === "Unassigned") && count("Photo submitted") + count("Awaiting PICOP verification") === 0) && <span className="action-chip action-clear">No outstanding board actions</span>}
-            {(!elr.trim() || !routeReference.trim() || startMiles === "" || startChains === "" || endMiles === "" || endChains === "") && <span className="action-chip action-neutral">Railway reference incomplete</span>}
-            {plannedStartAt && plannedEndAt && new Date(plannedEndAt) <= new Date(plannedStartAt) && <span className="action-chip action-danger">Planned finish must be after start</span>}
+            {calendarWorksites.some(item => item.picop_response === "pending" && String(item.possession_status || item.status || "").toLowerCase() !== "cancelled") && <span className="action-chip action-warning">{awaitingPicopWorksites.length} possession(s) awaiting PICOP confirmation</span>}
+            {calendarWorksites.some(item => String(item.possession_status || item.status || "").toLowerCase() === "cancelled") && <span className="action-chip action-danger">{calendarWorksites.filter(item => String(item.possession_status || item.status || "").toLowerCase() === "cancelled").length} cancelled possession(s)</span>}
+            {!calendarWorksites.some(item => item.picop_response === "pending" && String(item.possession_status || item.status || "").toLowerCase() !== "cancelled") && <span className="action-chip action-clear">No outstanding PICOP confirmations</span>}
           </div>
         </div>
       </section>}
