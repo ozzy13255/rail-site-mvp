@@ -498,3 +498,14 @@ body{background:#0b1420;color:#e8eef4}
 @media(min-width:701px){
   .picop-assignment-modal .possession-footer-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 }
+
+/* Force compact possession cells on small screens; all PICOP actions live in the opened assignment panel. */
+@media screen and (max-width: 800px){
+  .planning-calendar .calendar-day .calendar-day-events .picop-event-actions,
+  .planning-calendar .calendar-grid .picop-event-actions{display:none!important}
+  .planning-calendar .calendar-grid .calendar-event-wrap{min-width:0!important;width:100%!important}
+  .planning-calendar .calendar-grid .calendar-event{min-width:0!important;width:100%!important;white-space:normal!important;overflow:hidden!important}
+  .planning-calendar .calendar-grid .calendar-event span{white-space:normal!important;overflow-wrap:anywhere!important;word-break:normal!important}
+  .planning-calendar .calendar-grid .calendar-event small{display:none!important}
+  .planning-calendar .calendar-grid .calendar-day{min-width:0!important;overflow:hidden!important}
+}
