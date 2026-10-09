@@ -315,3 +315,16 @@ body{background:#0b1420;color:#e8eef4}
 .worksite-task-picker{display:flex;flex-direction:column;gap:5px;margin-top:10px;color:#91a6b7;font-size:9px;font-weight:700}
 .worksite-task-picker select{max-width:100%;min-width:230px;border:1px solid #354d61;border-radius:6px;background:#0b1824;color:#edf3f7;padding:8px 9px;font-size:10px;color-scheme:dark}
 @media(max-width:560px){.worksite-task-picker select{min-width:0;width:100%}}
+
+
+/* Shared possession calendar: orange until PICOP acceptance, green once accepted. */
+.calendar-event.event-pending{background:#3b2d18;border-color:#9b6a24;border-left-color:#f2a93b;color:#ffe0a3}
+.calendar-event.event-pending small{color:#e8c98f}
+.calendar-event.event-accepted{background:#173a2b;border-color:#347b56;border-left-color:#39c779;color:#c8ffe0}
+.calendar-event.event-accepted small{color:#9be0b8}
+.calendar-event.event-declined{background:#472326;border-color:#a14b53;border-left-color:#ff646e;color:#ffe0e1}
+.calendar-event.event-declined small{color:#ffb7bc}
+.calendar-legend .legend-pending,.calendar-legend .legend-accepted,.calendar-legend .legend-cancelled{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.calendar-legend .legend-pending{background:#f2a93b}
+.calendar-legend .legend-accepted{background:#39c779}
+.calendar-legend .legend-cancelled{background:#ff646e}
