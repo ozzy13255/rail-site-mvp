@@ -1074,7 +1074,7 @@ export default function App() {
         <div className="sidebar-section-label">WORKSPACE</div>
         {membership.role === "planner" && <button className={`sidebar-link ${["overview","calendar"].includes(activePage) ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("calendar")}><span className="sidebar-icon">▦</span><span className="sidebar-label">Planning &amp; Calendar</span></button>}
         {membership.role !== "member" && membership.role !== "planner" && <button className={`sidebar-link ${activePage === "overview" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("overview")}><span className="sidebar-icon">▦</span><span className="sidebar-label">{membership.role === "picop" ? "PICOP overview" : "Overview"}</span></button>}
-        {membership.role !== "member" && membership.role !== "planner" && <button className={`sidebar-link ${activePage === "calendar" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("calendar")}><span className="sidebar-icon">▦</span><span className="sidebar-label">Possession calendar</span></button>}
+        {membership.role !== "member" && membership.role !== "planner" && membership.role !== "picop" && <button className={`sidebar-link ${activePage === "calendar" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("calendar")}><span className="sidebar-icon">▦</span><span className="sidebar-label">Possession calendar</span></button>}
         {["owner", "admin"].includes(membership.role) && <button className={`sidebar-link ${activePage === "map" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("map")}><span className="sidebar-icon">⌖</span><span className="sidebar-label">Worksites &amp; map</span></button>}
         {membership.role !== "planner" && <button className={`sidebar-link ${activePage === "boards" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("boards")}><span className="sidebar-icon">⚑</span><span className="sidebar-label">{membership.role === "member" ? "My board tasks" : "Marker boards &amp; tasks"}</span></button>}
         {["owner", "admin"].includes(membership.role) && <button className={`sidebar-link ${activePage === "profiles" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("profiles")}><span className="sidebar-icon">♙</span><span className="sidebar-label">Manage profiles</span></button>}
@@ -1082,7 +1082,7 @@ export default function App() {
       </aside>
       <main className="workspace">
       {notifications.length > 0 && <section className="notification-center" aria-label="Notifications"><div className="notification-center-heading"><strong>Notifications</strong><span>{notifications.length} unread</span></div>{notifications.map(note => <div className="notification-row" key={note.id}><span className="notification-mark">!</span><p>{note.message}<small>{new Date(note.created_at).toLocaleString("en-GB")}</small></p><button type="button" onClick={() => markNotificationRead(note.id)} aria-label="Mark notification as read">×</button></div>)}</section>}
-      {(activePage === "calendar" || (membership.role === "planner" && activePage === "overview")) && <>
+      {(activePage === "calendar" || (membership.role === "planner" && activePage === "overview") || (membership.role === "picop" && activePage === "overview")) && <>
       {["owner", "admin", "planner"].includes(membership.role) && null}
       <section className="planning-calendar" id="calendar-screen">
         <div className="calendar-heading">
