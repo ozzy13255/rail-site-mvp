@@ -149,6 +149,8 @@ export default function App() {
   const [calendarWorksites, setCalendarWorksites] = useState([]);
   const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [selectedCalendarDate, setSelectedCalendarDate] = useState("");
+  const [possessionEditorOpen, setPossessionEditorOpen] = useState(false);
+  const [editorPlacingBoard, setEditorPlacingBoard] = useState(false);
   const [elr, setElr] = useState("");
   const [routeReference, setRouteReference] = useState("");
   const [startMiles, setStartMiles] = useState("");
@@ -378,6 +380,8 @@ export default function App() {
       setToast(boardTasks.length
         ? `Possession saved; ${savedBoardCount} marker board(s) saved too.`
         : "Possession saved to the planning calendar.");
+      setPossessionEditorOpen(false);
+      setEditorPlacingBoard(false);
       window.setTimeout(() => setToast(""), 4500);
     } catch (err) {
       setToast("Save failed unexpectedly: " + (err?.message || "Please try again."));
@@ -458,6 +462,8 @@ export default function App() {
 
   const startNewPossession = (dateString) => {
     setSelectedCalendarDate(dateString);
+    setPossessionEditorOpen(true);
+    setEditorPlacingBoard(false);
     setWorksiteId(null);
     setWorkSiteName("");
     setWorkRef("");
@@ -493,6 +499,8 @@ export default function App() {
     setPlannedStartAt(row.planned_start_at ? toLocalDateTime(row.planned_start_at) : "");
     setPlannedEndAt(row.planned_end_at ? toLocalDateTime(row.planned_end_at) : "");
     setSelectedCalendarDate(row.planned_start_at ? toLocalDateTime(row.planned_start_at).slice(0, 10) : "");
+    setPossessionEditorOpen(true);
+    setEditorPlacingBoard(false);
     if (worksiteId !== row.id) {
       setTasks([]);
       setSelectedId("");
@@ -595,6 +603,7 @@ export default function App() {
             const entries = calendarWorksites.filter(item => item.planned_start_at && toLocalDateTime(item.planned_start_at).slice(0, 10) === dateKey);
             return <div key={dateKey} className={`calendar-day ${inMonth ? "" : "calendar-day-muted"} ${selectedCalendarDate === dateKey ? "calendar-day-selected" : ""}`}>
               <button className="calendar-day-number" onClick={() => startNewPossession(dateKey)} aria-label={`Plan possession on ${dayDate.toLocaleDateString("en-GB")}`}>{dayDate.getDate()}</button>
+              <button className="calendar-add-day" onClick={() => startNewPossession(dateKey)} aria-label={`Add possession on ${dayDate.toLocaleDateString("en-GB")}`}>+ Plan</button>
               <div className="calendar-day-events">
                 {entries.map(item => <button key={item.id} className={`calendar-event event-${statusClass(item.possession_status || item.status || "Planning")}`} onClick={() => openPossession(item)} title={item.name}>
                   <span>{item.name || "Untitled possession"}</span>
@@ -606,6 +615,58 @@ export default function App() {
         </div>
         <div className="calendar-legend"><span><i className="legend-planning"/> Planning</span><span><i className="legend-active"/> In progress</span><span><i className="legend-complete"/> Complete</span><span>{calendarWorksites.length} saved possession(s)</span></div>
       </section>
+      {possessionEditorOpen && <div className="possession-modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) { setPossessionEditorOpen(false); setEditorPlacingBoard(false); } }}>
+        <section className="possession-modal" role="dialog" aria-modal="true" aria-labelledby="possession-editor-title">
+          <div className="possession-modal-header">
+            <div><div className="eyebrow">POSSESSION PLANNING</div><h2 id="possession-editor-title">{worksiteId ? "Edit possession" : "Plan a new possession"}</h2><p>{selectedCalendarDate ? new Date(`${selectedCalendarDate}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "Set the date, time and railway mileage"}</p></div>
+            <button className="calendar-close" type="button" onClick={() => { setPossessionEditorOpen(false); setEditorPlacingBoard(false); }} aria-label="Close possession editor">×</button>
+          </div>
+          <div className="possession-modal-body">
+            <div className="possession-form-grid">
+              <label>Possession / work-site name<input value={workSiteName} onChange={e => setWorkSiteName(e.target.value)} placeholder="e.g. Grantham track renewal" autoFocus /></label>
+              <label>Work-site reference<input value={workRef} onChange={e => setWorkRef(e.target.value)} placeholder="e.g. WS-2026-014" /></label>
+              <label>Possession status<select value={possessionStatus} onChange={e => setPossessionStatus(e.target.value)}><option>Planning</option><option>Briefing</option><option>In progress</option><option>Suspended</option><option>Complete</option><option>Cancelled</option></select></label>
+              <div className="possession-time-row">
+                <label>Exact start date &amp; time<input type="datetime-local" value={plannedStartAt} onChange={e => { setPlannedStartAt(e.target.value); setSelectedCalendarDate(e.target.value.slice(0,10)); }} required /></label>
+                <label>Exact finish date &amp; time<input type="datetime-local" value={plannedEndAt} onChange={e => setPlannedEndAt(e.target.value)} required /></label>
+              </div>
+            </div>
+            <div className="possession-mileage-form">
+              <div className="modal-section-heading"><div><strong>Railway location</strong><small>Use the operational ELR and route mileage, in miles and chains</small></div><span className="mileage-format-tag">Miles &amp; chains</span></div>
+              <div className="possession-form-grid two">
+                <label>ELR<input value={elr} onChange={e => setElr(e.target.value.toUpperCase())} placeholder="e.g. GRAN" /></label>
+                <label>Route / line reference<input value={routeReference} onChange={e => setRouteReference(e.target.value)} placeholder="Route / line" /></label>
+              </div>
+              <div className="mileage-range-fields">
+                <div className="mileage-endpoint"><span>Work-site FROM</span><div><label>Miles<input type="number" min="0" step="1" value={startMiles} onChange={e => setStartMiles(e.target.value)} placeholder="0" /></label><label>Chains<input type="number" min="0" max="79" step="1" value={startChains} onChange={e => setStartChains(e.target.value)} placeholder="00" /></label></div></div>
+                <div className="mileage-endpoint"><span>Work-site TO</span><div><label>Miles<input type="number" min="0" step="1" value={endMiles} onChange={e => setEndMiles(e.target.value)} placeholder="0" /></label><label>Chains<input type="number" min="0" max="79" step="1" value={endChains} onChange={e => setEndChains(e.target.value)} placeholder="00" /></label></div></div>
+              </div>
+            </div>
+            <div className="possession-map-editor">
+              <div className="modal-section-heading"><div><strong>Marker boards</strong><small>{tasks.length} board(s) in this possession. Add pins here or enter their mileage in the board details after saving.</small></div><button type="button" className={`btn ${editorPlacingBoard ? "btn-warning" : "btn-secondary"}`} onClick={() => setEditorPlacingBoard(v => !v)}>{editorPlacingBoard ? "Tap map to place…" : "+ Place board"}</button></div>
+              <div className="possession-mini-map">
+                <MapContainer center={[52.915, -0.636]} zoom={13} minZoom={5} maxZoom={19} zoomControl={true} scrollWheelZoom={true}>
+                  <LayersControl position="topright"><LayersControl.BaseLayer checked name="OpenStreetMap"><TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" /></LayersControl.BaseLayer><LayersControl.Overlay name="Railway infrastructure (OpenRailwayMap)"><TileLayer attribution='Data &copy; OpenStreetMap contributors · OpenRailwayMap' url="https://tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png" maxZoom={19} /></LayersControl.Overlay></LayersControl>
+                  <MapClickHandler enabled={editorPlacingBoard} onSelect={position => {
+                    let nextNumber = 1;
+                    while (tasks.some(task => task.id === `MB-${String(nextNumber).padStart(2,"0")}`)) nextNumber += 1;
+                    const id = `MB-${String(nextNumber).padStart(2,"0")}`;
+                    const newTask = { id, label: `Marker board ${nextNumber}`, assignee: "Unassigned", status: "Unassigned", position, elr, routeReference, mileageMiles: "", mileageChains: "", notes: "", demo: false, dbId: null };
+                    setTasks(prev => [...prev, newTask]);
+                    setSelectedId(id);
+                    setEditorPlacingBoard(false);
+                    setToast(`${id} added to this possession. Set its mileage reference in the board details.`);
+                  }} />
+                  {tasks.filter(task => !task.demo).map(task => <Marker key={task.id} position={task.position} icon={boardIcon}><Popup><strong>{task.label}</strong><br/>{task.id}</Popup></Marker>)}
+                </MapContainer>
+              </div>
+              <p className="map-safety-note">Map pins placed manually are approximate. Accurate automatic positioning from ELR + miles/chains requires a validated railway track-mileage dataset for the correct route and track; RailSite will not infer a safety-critical position from GPS or a generic basemap.</p>
+              {tasks.filter(task => !task.demo).length > 0 && <div className="modal-board-list">{tasks.filter(task => !task.demo).map(task => <div key={task.id}><span><strong>{task.label}</strong><small>{task.elr || elr || "ELR TBC"} · {task.mileageMiles === "" ? "Mileage not set" : `${task.mileageMiles}m ${String(task.mileageChains || 0).padStart(2,"0")}ch`}</small></span><button type="button" onClick={() => setTasks(prev => prev.filter(item => item.id !== task.id))} aria-label={`Remove ${task.label}`}>Remove</button></div>)}</div>}
+            </div>
+          </div>
+          <div className="possession-modal-footer"><span>Changes are saved to the shared company workspace.</span><div><button className="btn btn-secondary" type="button" onClick={() => { setPossessionEditorOpen(false); setEditorPlacingBoard(false); }}>Cancel</button><button className="btn btn-primary" type="button" onClick={saveWorksite} disabled={siteSaving || siteLoading}>{siteSaving ? "Saving…" : "Save possession"}</button></div></div>
+        </section>
+      </div>}
       <section className="dashboard-overview">
         <div className="dashboard-heading">
           <div><div className="eyebrow">OPERATIONS CONTROL</div><h1>PICOP dashboard</h1><p>Work-site status, marker-board progress and railway location reference.</p></div>
