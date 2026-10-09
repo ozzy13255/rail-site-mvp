@@ -53,3 +53,78 @@
 .btn-danger:hover{background:#ffe8e6;border-color:#d88b86}
 .btn-danger:disabled{opacity:.45;cursor:not-allowed}
 .delete-board-button{margin-top:9px}
+
+
+/* PICOP operations-control dashboard */
+:root{color:#e8eef4;background:#0b1420}
+body{background:#0b1420;color:#e8eef4}
+.app-shell{background:#0b1420}
+.workspace{display:flex;flex-direction:column;gap:16px;padding:20px;max-width:1800px;width:100%;margin:0 auto}
+.dashboard-overview{display:flex;flex-direction:column;gap:15px}
+.dashboard-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:4px 2px}
+.dashboard-heading .eyebrow{color:#7fa5bd;letter-spacing:1.8px}
+.dashboard-heading h1{font-family:Manrope,sans-serif;font-size:25px;line-height:1.15;letter-spacing:-.6px;margin:6px 0;color:#f1f5f9}
+.dashboard-heading p{font-size:12px;color:#91a3b4;margin:6px 0 0}
+.dashboard-live{display:grid;grid-template-columns:8px auto;align-items:center;column-gap:8px;background:#132536;border:1px solid #294257;border-radius:8px;padding:10px 12px;color:#a8c1d2;font-size:9px;font-weight:800;letter-spacing:1px;white-space:nowrap}
+.dashboard-live .online-dot{grid-row:span 2}
+.dashboard-live small{grid-column:2;color:#738da2;font-size:10px;font-weight:500;letter-spacing:0;margin-top:4px}
+.overview-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.overview-card{min-width:0;position:relative;overflow:hidden;background:linear-gradient(145deg,#152739,#101e2c);border:1px solid #293d50;border-radius:11px;padding:16px 17px;box-shadow:0 5px 18px #00000012}
+.overview-card-site{background:linear-gradient(145deg,#183247,#132536);border-color:#34566b}
+.overview-card-top{display:flex;align-items:center;gap:9px;margin-bottom:15px}
+.overview-icon{display:grid;place-items:center;width:30px;height:30px;flex-shrink:0;border-radius:7px;background:#223c50;color:#e5b35a;font-size:18px}
+.overview-label{font-size:9px;letter-spacing:1.15px;font-weight:800;color:#8fa6b8}
+.overview-number{display:block;font:800 30px Manrope,sans-serif;line-height:1.1;color:#f3f7fa;font-variant-numeric:tabular-nums}
+.overview-main-value{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:800 17px Manrope,sans-serif;color:#f3f7fa}
+.overview-card-foot{display:flex;align-items:center;gap:6px;min-height:17px;margin-top:9px;color:#91a4b4;font-size:10px;line-height:1.4;overflow-wrap:anywhere}
+.overview-status-dot{width:6px;height:6px;border-radius:50%;background:#e5b35a;display:inline-block;flex-shrink:0}
+.overview-progress{height:3px;background:#2b3d4e;border-radius:5px;margin-top:12px;overflow:hidden}
+.overview-progress span{height:100%;display:block;background:#36b58a;border-radius:5px;transition:width .2s}
+.map-column{width:100%;background:#101d2a;border:1px solid #293b4d;border-radius:12px;overflow:hidden}
+.site-toolbar{border:0;border-bottom:1px solid #293b4d;border-radius:0;background:#132333;color:#e8eef4}
+.site-name{color:#f1f5f9}
+.site-ref{color:#9aafbf}
+.site-ref input{background:#0d1a27;border-color:#35495b;color:#e8eef4}
+.rail-mileage-panel{background:#101f2d;border-color:#293b4d;color:#e8eef4}
+.rail-mileage-heading strong{color:#edf3f7}
+.mileage-format-tag{background:#1b3547;border-color:#35556b;color:#a9d2e5}
+.rail-reference-fields label,.mileage-endpoint label,.marker-reference-fields label,.marker-chain-fields label{color:#a9bac8}
+.rail-reference-fields input,.mileage-endpoint input,.marker-reference-fields input,.marker-chain-fields input{background:#0c1925;border-color:#33495c;color:#edf3f7}
+.mileage-endpoint{background:#142738;border-color:#2b4357}
+.mileage-endpoint>span{color:#d8e5ee}
+.rail-mileage-panel>p{color:#90a4b5}
+.map-wrap{height:min(68vh,760px);min-height:420px;border-color:#293b4d}
+.map-footer{background:#132333;border-color:#293b4d}
+.map-footer-item{border-color:#2b3d4e}
+.footer-icon{background:#203447;color:#c2d4e0}
+.map-footer-item strong{color:#d9e5ed}
+.map-footer-item small{color:#8ba0b1}
+.side-panel{width:100%;align-self:stretch;background:#111f2d;border-color:#293b4d;color:#e8eef4}
+.panel-heading h1,.task-list-heading h2,.detail-card h2{color:#edf3f7}
+.count-badge{background:#22384b;color:#e5b35a}
+.stat-card{background:#142536;border-color:#2b3e50}
+.stat-card span{color:#9aafbf}
+.stat-card strong{color:#f2f6f9}
+.task-list-heading{border-color:#293b4d}
+.task-list-heading select,.field input,.field select,.field textarea{background:#0d1a27;border-color:#33495c;color:#e5edf3}
+.task-list{max-height:300px}
+.task-row{background:transparent;color:#e1eaf1}
+.task-row:hover{background:#172b3d}
+.task-row.selected{background:#1a3448;border-color:#35566e}
+.task-main small{color:#93a7b7}
+.empty-state{color:#9aafbf}
+.detail-card{background:#0f1d2a;border-color:#293b4d}
+.field label{color:#a5b7c5}
+.marker-mileage-card{background:#142637;border-color:#2d4559}
+.marker-mileage-card>small{color:#91a6b6}
+.coord-box{background:#192c3d}
+.coord-box div+div{border-color:#34495b}
+.coord-box span{color:#9aafbf}
+.coord-box strong{color:#e6eef4}
+.upload-zone{background:#132536;border-color:#40586b}
+.upload-zone strong{color:#dce7ee}
+.upload-zone small{color:#95a9b9}
+.panel-bottom-note{border-color:#293b4d;color:#8ea3b4}
+.app-footer{color:#71899d}
+@media(max-width:1000px){.overview-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.workspace{padding:14px}.map-wrap{height:60vh}}
+@media(max-width:600px){.workspace{padding:9px;gap:11px}.dashboard-heading{align-items:flex-start}.dashboard-heading h1{font-size:22px}.dashboard-heading p{max-width:260px;line-height:1.5}.dashboard-live{padding:8px;font-size:8px}.overview-cards{gap:8px}.overview-card{padding:12px}.overview-card-top{gap:7px;margin-bottom:12px}.overview-icon{width:26px;height:26px;font-size:15px}.overview-label{font-size:8px;letter-spacing:.7px}.overview-number{font-size:26px}.overview-main-value{font-size:14px}.overview-card-foot{font-size:9px}.map-wrap{height:54vh;min-height:350px}.site-toolbar{border-radius:0}.rail-mileage-panel{border-top:1px solid #293b4d}.map-footer{border-radius:0}.side-panel{border-radius:10px}}
