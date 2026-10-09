@@ -469,12 +469,12 @@ export default function App() {
     setEndMiles("");
     setEndChains("");
     setPossessionStatus("Planning");
-    setPlannedStartAt("");
+    setPlannedStartAt(`${dateString}T00:00`);
     setPlannedEndAt("");
     setTasks([]);
     setSelectedId("");
     setPhotoPreviews({});
-    setToast("New possession draft started. Enter the planned start and finish times, ELR, route and mileage, then save.");
+    setToast("New possession draft started. Change the start time from 00:00 to the planned time, add the finish time, ELR, route and mileage, then save.");
     window.setTimeout(() => setToast(""), 5000);
   };
 
