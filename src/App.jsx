@@ -7,9 +7,9 @@ import "leaflet-draw/dist/leaflet.draw.css";
 
 // Demo records only. Replace with authenticated Supabase records before operational use.
 const initialTasks = [
-  { id: "MB-01", label: "Marker board 1", assignee: "Alex Morgan", status: "Assigned", position: [52.9127, -0.6424], elr: "", routeReference: "", mileageMiles: "", mileageChains: "", notes: "Confirm access point before travelling." },
-  { id: "MB-02", label: "Marker board 2", assignee: "Jamie Taylor", status: "Photo submitted", position: [52.9150, -0.6358], elr: "", routeReference: "", mileageMiles: "", mileageChains: "", notes: "Upload a clear photo showing the board in position." },
-  { id: "MB-03", label: "Marker board 3", assignee: "Unassigned", status: "Unassigned", position: [52.9170, -0.6288], elr: "", routeReference: "", mileageMiles: "", mileageChains: "", notes: "" }
+  { id: "MB-01", label: "Marker board 1", assignee: "Alex Morgan", status: "Assigned", position: [52.9127, -0.6424], elr: "", routeReference: "", mileageMiles: "", mileageChains: "", notes: "Confirm access point before travelling.", demo: true },
+  { id: "MB-02", label: "Marker board 2", assignee: "Jamie Taylor", status: "Photo submitted", position: [52.9150, -0.6358], elr: "", routeReference: "", mileageMiles: "", mileageChains: "", notes: "Upload a clear photo showing the board in position.", demo: true },
+  { id: "MB-03", label: "Marker board 3", assignee: "Unassigned", status: "Unassigned", position: [52.9170, -0.6288], elr: "", routeReference: "", mileageMiles: "", mileageChains: "", notes: "", demo: true }
 ];
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -293,15 +293,90 @@ export default function App() {
       ? supabase.from("worksites").update(payload).eq("id", worksiteId).eq("company_id", membership.company_id).select("id").single()
       : supabase.from("worksites").insert(payload).select("id").single();
     const { data, error } = await request;
-    setSiteSaving(false);
     if (error) {
+      setSiteSaving(false);
       setToast("Work site was not saved: " + error.message);
       return;
     }
-    setWorksiteId(data.id);
-    setToast("Work-site details saved to RailSite.");
+    const savedWorksiteId = data.id;
+    setWorksiteId(savedWorksiteId);
+    const boardTasks = tasks.filter(task => !task.demo);
+    for (const task of boardTasks) {
+      const chainValue = task.mileageChains === "" || task.mileageChains == null ? null : Number(task.mileageChains);
+      const milesValue = task.mileageMiles === "" || task.mileageMiles == null ? null : Number(task.mileageMiles);
+      if (chainValue !== null && (!Number.isInteger(chainValue) || chainValue < 0 || chainValue > 79)) {
+        setSiteSaving(false);
+        setToast(`${task.id}: chains must be a whole number from 0 to 79.`);
+        return;
+      }
+      const boardPayload = {
+        worksite_id: savedWorksiteId,
+        board_code: task.id,
+        label: task.label,
+        latitude: Number(task.position[0]),
+        longitude: Number(task.position[1]),
+        status: task.status === "Verified" ? "verified" : task.status === "Unassigned" ? "planned" : "placed",
+        elr: (task.elr || elr).trim().toUpperCase() || null,
+        route_reference: (task.routeReference || routeReference).trim() || null,
+        mileage_miles: milesValue,
+        mileage_chains: chainValue
+      };
+      const boardRequest = task.dbId
+        ? supabase.from("marker_boards").update(boardPayload).eq("id", task.dbId).select("id").single()
+        : supabase.from("marker_boards").insert(boardPayload).select("id").single();
+      const { data: boardData, error: boardError } = await boardRequest;
+      if (boardError) {
+        setSiteSaving(false);
+        setToast(`Work site saved, but ${task.id} could not be saved: ${boardError.message}`);
+        return;
+      }
+      if (!task.dbId) updateTask(task.id, { dbId: boardData.id, demo: false });
+    }
+    setSiteSaving(false);
+    setToast(boardTasks.length ? "Work site and marker-board mileage saved to RailSite." : "Work-site details saved to RailSite.");
     window.setTimeout(() => setToast(""), 4000);
   };
+
+  useEffect(() => {
+    if (!supabase || !membership?.company_id || !worksiteId) return;
+    let active = true;
+    const loadBoards = async () => {
+      const { data, error } = await supabase
+        .from("marker_boards")
+        .select("id, board_code, label, latitude, longitude, status, elr, route_reference, mileage_miles, mileage_chains")
+        .eq("worksite_id", worksiteId)
+        .order("created_at", { ascending: true });
+      if (!active) return;
+      if (error) {
+        setToast("Work site loaded, but marker boards could not be loaded.");
+        return;
+      }
+      if (data?.length) {
+        const loaded = data.map((row, index) => {
+          const code = row.board_code || row.label || `MB-${String(index + 1).padStart(2, "0")}`;
+          const status = row.status === "verified" ? "Verified" : row.status === "placed" ? "Awaiting PICOP verification" : "Unassigned";
+          return {
+            id: code,
+            dbId: row.id,
+            label: row.label || `Marker board ${index + 1}`,
+            assignee: "Unassigned",
+            status,
+            position: [Number(row.latitude), Number(row.longitude)],
+            elr: row.elr || "",
+            routeReference: row.route_reference || "",
+            mileageMiles: row.mileage_miles ?? "",
+            mileageChains: row.mileage_chains ?? "",
+            notes: "",
+            demo: false
+          };
+        });
+        setTasks(loaded);
+        setSelectedId(loaded[0].id);
+      }
+    };
+    void loadBoards();
+    return () => { active = false; };
+  }, [membership?.company_id, worksiteId]);
 
   const handleSignOut = async () => {
     if (!supabase) return;
@@ -315,7 +390,7 @@ export default function App() {
   const choosePin = React.useCallback((position) => {
     if (!placingPin) return;
     const id = `MB-${String(tasks.length + 1).padStart(2, "0")}`;
-    const task = { id, label: `Marker board ${tasks.length + 1}`, assignee: "Unassigned", status: "Unassigned", position, elr, routeReference, mileageMiles: "", mileageChains: "", notes: "" };
+    const task = { id, label: `Marker board ${tasks.length + 1}`, assignee: "Unassigned", status: "Unassigned", position, elr, routeReference, mileageMiles: "", mileageChains: "", notes: "", demo: false, dbId: null };
     setTasks(prev => [...prev, task]);
     setSelectedId(id);
     setPlacingPin(false);
@@ -484,15 +559,15 @@ export default function App() {
               <label>Miles<input type="number" min="0" step="1" value={selected.mileageMiles ?? ""} onChange={e => updateTask(selected.id, { mileageMiles: e.target.value })} placeholder="0"/></label>
               <label>Chains (0–79)<input type="number" min="0" max="79" step="1" value={selected.mileageChains ?? ""} onChange={e => updateTask(selected.id, { mileageChains: e.target.value })} placeholder="00"/></label>
             </div>
-            <small>Use the possession mileage reference. The map pin is not automatically derived from mileage yet.</small>
+            <small>Board mileage is saved with the work site. The map pin remains a manually placed visual reference until an approved railway geometry dataset is connected.</small>
           </div>
           <div className="field">
             <label htmlFor="notes">Instructions</label>
             <textarea id="notes" rows="2" value={selected.notes || ""} onChange={e => updateTask(selected.id, { notes: e.target.value })} placeholder="Add task instructions…"/>
           </div>
           <div className="coord-box">
-            <div><span>Latitude</span><strong>{selected.position[0].toFixed(6)}</strong></div>
-            <div><span>Longitude</span><strong>{selected.position[1].toFixed(6)}</strong></div>
+            <div><span>Map latitude</span><strong>{selected.position[0].toFixed(6)}</strong></div>
+            <div><span>Map longitude</span><strong>{selected.position[1].toFixed(6)}</strong></div>
           </div>
           <button className="btn btn-secondary btn-full" onClick={requestGps}>◎ Get my current GPS location</button>
           {gpsError && <div className="inline-error">{gpsError}</div>}
