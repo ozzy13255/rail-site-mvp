@@ -466,6 +466,8 @@ export default function App() {
 
   const startNewPossession = (dateString) => {
     setSelectedCalendarDate(dateString);
+    const chosenDate = new Date(`${dateString}T12:00:00`);
+    setCalendarMonth(new Date(chosenDate.getFullYear(), chosenDate.getMonth(), 1));
     setPossessionEditorOpen(true);
     setEditorPlacingBoard(false);
     setWorksiteId(null);
