@@ -469,3 +469,32 @@ body{background:#0b1420;color:#e8eef4}
   .calendar-event{padding:3px 2px;}
   .calendar-event span{font-size:7px;}
 }
+
+/* PICOP calendar responsive actions: keep day cells compact on mobile. */
+@media(max-width:700px){
+  .planning-calendar{padding:12px!important;overflow:hidden}
+  .calendar-heading{align-items:flex-start;gap:12px;flex-direction:column}
+  .calendar-heading h2{font-size:22px}
+  .calendar-actions{width:100%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+  .calendar-actions>strong{grid-column:1/-1;grid-row:1;text-align:center;padding:7px}
+  .calendar-actions .btn{min-width:0;padding:8px 5px;white-space:nowrap}
+  .calendar-actions .btn-primary{grid-column:1/-1}
+  .calendar-grid{grid-template-columns:repeat(7,minmax(0,1fr));gap:1px}
+  .calendar-day{min-width:0;min-height:92px;padding:4px 3px!important;overflow:hidden}
+  .calendar-day-number{max-width:100%;padding:2px!important;font-size:12px!important;display:flex;align-items:center;gap:2px;flex-wrap:wrap}
+  .calendar-today-tag{font-size:9px!important;padding:2px 4px!important}
+  .calendar-add-day{font-size:9px!important;padding:2px 0!important;white-space:nowrap}
+  .calendar-day-events{min-width:0;display:flex;flex-direction:column;gap:4px}
+  .calendar-event-wrap{min-width:0;width:100%;margin:0!important}
+  .calendar-event{display:block;width:100%;min-width:0;padding:4px 3px!important;border-radius:6px!important;text-align:left;overflow:hidden}
+  .calendar-event>span{display:block;font-size:10px!important;line-height:1.2!important;white-space:normal;overflow-wrap:anywhere;word-break:normal}
+  .calendar-event small{display:none!important}
+  .calendar-day-events .picop-event-actions{display:none!important}
+  .calendar-legend{gap:8px!important;flex-wrap:wrap;font-size:11px!important}
+  .picop-assignment-modal .possession-modal-footer{display:flex;flex-direction:column;align-items:stretch;gap:10px}
+  .picop-assignment-modal .possession-footer-actions{display:flex;flex-direction:column;width:100%;gap:8px}
+  .picop-assignment-modal .possession-footer-actions .btn{width:100%;white-space:normal;line-height:1.25;padding:12px}
+}
+@media(min-width:701px){
+  .picop-assignment-modal .possession-footer-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+}
