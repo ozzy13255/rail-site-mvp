@@ -165,6 +165,7 @@ export default function App() {
   const [filter, setFilter] = useState("All tasks");
   const [toast, setToast] = useState("");
   const [photoPreviews, setPhotoPreviews] = useState({});
+  const [photoFiles, setPhotoFiles] = useState({});
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activePage, setActivePage] = useState("overview");
   const [companyProfiles, setCompanyProfiles] = useState([]);
@@ -502,7 +503,7 @@ export default function App() {
           label: task.label,
           latitude: Number(task.position[0]),
           longitude: Number(task.position[1]),
-          status: task.status === "Verified" ? "verified" : task.status === "Unassigned" ? "planned" : "placed",
+          status: task.status === "Verified" ? "verified" : task.status === "Awaiting PICOP verification" ? "placed" : "planned",
           assigned_to: task.assignee === "Unassigned" ? null : task.assignee,
           assigned_email: task.assignedEmail || null,
           notes: task.notes || null,
@@ -639,7 +640,7 @@ export default function App() {
     const loadBoards = async () => {
       const { data, error } = await supabase
         .from("marker_boards")
-        .select("id, board_code, label, latitude, longitude, status, assigned_to, assigned_email, notes, elr, route_reference, mileage_miles, mileage_chains")
+        .select("id, board_code, label, latitude, longitude, status, assigned_to, assigned_email, notes, elr, route_reference, mileage_miles, mileage_chains, photo_url, submitted_latitude, submitted_longitude, submitted_gps_accuracy_m, submitted_at, verified_at, verification_notes, placement_requested_at")
         .eq("worksite_id", worksiteId)
         .order("created_at", { ascending: true });
       if (!active) return;
@@ -657,6 +658,14 @@ export default function App() {
             label: row.label || `Marker board ${index + 1}`,
             assignee: row.assigned_to || "Unassigned",
             assignedEmail: row.assigned_email || "",
+            photoUrl: row.photo_url || "",
+            submittedLatitude: row.submitted_latitude,
+            submittedLongitude: row.submitted_longitude,
+            submittedGpsAccuracy: row.submitted_gps_accuracy_m,
+            submittedAt: row.submitted_at,
+            verifiedAt: row.verified_at,
+            verificationNotes: row.verification_notes || "",
+            placementRequestedAt: row.placement_requested_at,
             status,
             position: [Number(row.latitude), Number(row.longitude)],
             elr: row.elr || "",
@@ -779,11 +788,60 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = () => {
       setPhotoPreviews(prev => ({ ...prev, [selected.id]: reader.result }));
-      updateTask(selected.id, { status: "Photo submitted", photoName: file.name, submittedAt: new Date().toISOString(), submittedGps: gps?.position || null });
-      setToast("Photo attached in this demo. It is not uploaded to a server yet.");
+      setPhotoFiles(prev => ({ ...prev, [selected.id]: file }));
+      updateTask(selected.id, { photoName: file.name });
+      setToast("Photo selected. Get a GPS fix, then confirm board placement to submit the evidence.");
       window.setTimeout(() => setToast(""), 4500);
     };
     reader.readAsDataURL(file);
+  };
+
+  const confirmBoardPlaced = async () => {
+    if (!selected.dbId || !worksiteId) { setToast("Save the work site and marker board before submitting evidence."); return; }
+    if (!selected.placementRequestedAt) { setToast("The PICOP has not requested this board to be placed yet."); return; }
+    const file = photoFiles[selected.id];
+    if (!file) { setToast("Take or select a photo of the placed marker board first."); return; }
+    if (!gps) { setToast("Get a live GPS fix before confirming placement."); return; }
+    setWorkflowBusyId(selected.id);
+    try {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const path = `${worksiteId}/${selected.dbId}/${Date.now()}-${safeName}`;
+      const { error: uploadError } = await supabase.storage.from("railsite-board-evidence").upload(path, file, { contentType: file.type, upsert: false });
+      if (uploadError) throw uploadError;
+      const { error } = await supabase.rpc("operative_submit_marker_board", {
+        p_marker_board_id: selected.dbId, p_photo_path: path,
+        p_latitude: gps.position[0], p_longitude: gps.position[1], p_accuracy_m: gps.accuracy
+      });
+      if (error) throw error;
+      updateTask(selected.id, { status: "Awaiting PICOP verification", photoUrl: path, submittedLatitude: gps.position[0], submittedLongitude: gps.position[1], submittedGpsAccuracy: gps.accuracy, submittedAt: new Date().toISOString() });
+      setToast("Board placement submitted with photo and GPS evidence. The PICOP has been notified.");
+    } catch (error) { setToast("Could not submit board evidence: " + (error?.message || "Please try again.")); }
+    finally { setWorkflowBusyId(""); }
+  };
+
+  const verifySelectedBoard = async (approved) => {
+    if (!selected.dbId) return;
+    setWorkflowBusyId(selected.id);
+    const { error } = await supabase.rpc("picop_verify_marker_board", { p_marker_board_id: selected.dbId, p_approved: approved, p_notes: selected.verificationNotes || null });
+    if (error) setToast("Could not verify marker board: " + error.message);
+    else {
+      updateTask(selected.id, { status: approved ? "Verified" : "Assigned", verificationNotes: selected.verificationNotes || "" });
+      setToast(approved ? "Marker-board evidence verified." : "Board returned for correction. The assigned user has been notified.");
+    }
+    setWorkflowBusyId("");
+  };
+
+  const assignSelectedBoard = async (email) => {
+    if (!selected.dbId) { setToast("Save this work site and board before assigning a user."); return; }
+    setWorkflowBusyId(selected.id);
+    const { error } = await supabase.rpc("picop_assign_marker_board", { p_marker_board_id: selected.dbId, p_member_email: email });
+    if (error) setToast("Could not assign marker board: " + error.message);
+    else {
+      const profile = teamOptions.find(item => item.email === email);
+      updateTask(selected.id, { assignedEmail: email, assignee: profile?.display_name || email, status: "Assigned" });
+      setToast("Marker board assigned. The placement request will notify this user when the PICOP requests placement.");
+    }
+    setWorkflowBusyId("");
   };
 
   const visibleTasks = useMemo(() => filter === "All tasks" ? tasks : tasks.filter(t => t.status === filter), [tasks, filter]);
@@ -1033,7 +1091,7 @@ export default function App() {
           <h2>{selected.label}</h2>
           <div className="field">
             <label htmlFor="assignee">Assign team member</label>
-            <select id="assignee" value={selected.assignedEmail || ""} onChange={e => { const profile = teamOptions.find(item => item.email === e.target.value); updateTask(selected.id, { assignedEmail: profile?.email || "", assignee: profile?.display_name || profile?.email || "Unassigned", status: profile ? (selected.status === "Unassigned" ? "Assigned" : selected.status) : "Unassigned" }); }}>
+            <select id="assignee" value={selected.assignedEmail || ""} disabled={membership.role === "picop" && workflowBusyId === selected.id} onChange={e => membership.role === "picop" ? assignSelectedBoard(e.target.value) : updateTask(selected.id, { assignedEmail: e.target.value, assignee: teamOptions.find(item => item.email === e.target.value)?.display_name || e.target.value || "Unassigned", status: e.target.value ? "Assigned" : "Unassigned" })}>
               <option value="">Unassigned</option>{teamOptions.map(profile => <option key={profile.user_id} value={profile.email}>{profile.display_name ? profile.display_name + " — " : ""}{profile.email}</option>)}
             </select>
           </div>
@@ -1068,11 +1126,10 @@ export default function App() {
             <input id="photo" className="file-input" type="file" accept="image/*" capture="environment" onChange={onPhoto}/>
             {selected.photoName && <div className="file-caption">Attached: {selected.photoName}</div>}
           </div>
-          <div className="button-row">
-            <button className="btn btn-secondary" onClick={() => { updateTask(selected.id, { status: "Awaiting PICOP verification" }); setToast("Task moved to awaiting verification."); window.setTimeout(() => setToast(""), 3000); }}>Request review</button>
-            <button className="btn btn-primary" onClick={() => { updateTask(selected.id, { status: "Verified" }); setToast("Marked verified in this demo only."); window.setTimeout(() => setToast(""), 3000); }}>Verify task</button>
-          </div>
-          <button className="btn btn-danger btn-full delete-board-button" onClick={deleteSelectedBoard} disabled={!selected.id}>Delete selected marker board</button>
+          {selected.photoUrl && <div className="board-evidence-card"><strong>Submitted placement evidence</strong>{photoPreviews[selected.id] ? <img src={photoPreviews[selected.id]} alt="Marker board placement evidence"/> : <button type="button" className="btn btn-secondary btn-full" onClick={async () => { const { data, error } = await supabase.storage.from("railsite-board-evidence").createSignedUrl(selected.photoUrl, 3600); if (error) setToast("Could not open evidence photo: " + error.message); else window.open(data.signedUrl, "_blank", "noopener,noreferrer"); }}>View submitted photo</button>}<small>Submitted {selected.submittedAt ? new Date(selected.submittedAt).toLocaleString("en-GB") : "time unavailable"} · GPS ±{selected.submittedGpsAccuracy ?? "?"} m</small><small>{selected.submittedLatitude != null ? `GPS: ${Number(selected.submittedLatitude).toFixed(6)}, ${Number(selected.submittedLongitude).toFixed(6)}` : "GPS evidence unavailable"}</small></div>}
+          {membership.role === "member" && <div className="operative-confirm-panel"><strong>Placement confirmation</strong><p>{selected.placementRequestedAt ? "The PICOP has requested this board. Photograph it in place, acquire GPS, then confirm." : "Waiting for the PICOP to request board placement. You cannot confirm placement before that request."}</p>{selected.verificationNotes && <div className="inline-error">PICOP feedback: {selected.verificationNotes}</div>}{selected.placementRequestedAt && selected.status !== "Verified" && <button className="btn btn-primary btn-full" onClick={confirmBoardPlaced} disabled={workflowBusyId === selected.id || !photoFiles[selected.id] || !gps}>{workflowBusyId === selected.id ? "Submitting evidence…" : "Confirm board placed with photo + GPS"}</button>}</div>}
+          {membership.role === "picop" && selected.status === "Awaiting PICOP verification" && <div className="operative-confirm-panel"><strong>PICOP verification</strong><label className="verification-notes-label">Notes for the operative<textarea rows="2" value={selected.verificationNotes || ""} onChange={e => updateTask(selected.id, { verificationNotes: e.target.value })} placeholder="Required if returning for correction"/></label><div className="button-row"><button className="btn btn-danger" onClick={() => verifySelectedBoard(false)} disabled={workflowBusyId === selected.id || !(selected.verificationNotes || "").trim()}>Return for correction</button><button className="btn btn-primary" onClick={() => verifySelectedBoard(true)} disabled={workflowBusyId === selected.id}>Verify evidence</button></div></div>}
+          {["owner", "admin", "planner"].includes(membership.role) && <button className="btn btn-danger btn-full delete-board-button" onClick={deleteSelectedBoard} disabled={!selected.id}>Delete selected marker board</button>}
           <p className="safety-note"><strong>Safety note:</strong> This prototype does not confirm railway protection, safe access, or correct placement. Use approved railway procedures and independent checks.</p>
           </>}
         </div>
