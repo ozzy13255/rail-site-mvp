@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, Polygon, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Polygon, LayersControl, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet-draw";
 import "leaflet-draw/dist/leaflet.draw.css";
@@ -160,10 +160,21 @@ export default function App() {
         </div>
         <div className="map-wrap">
           <MapContainer center={[52.915, -0.636]} zoom={14} minZoom={5} maxZoom={19} zoomControl={true} scrollWheelZoom={true}>
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
+            <LayersControl position="topright">
+              <LayersControl.BaseLayer checked name="OpenStreetMap">
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+              </LayersControl.BaseLayer>
+              <LayersControl.Overlay name="Railway infrastructure (OpenRailwayMap)">
+                <TileLayer
+                  attribution='Data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> · Style: <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC BY-SA 2.0</a> · <a href="https://www.openrailwaymap.org/">OpenRailwayMap</a>'
+                  url="https://tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png"
+                  maxZoom={19}
+                />
+              </LayersControl.Overlay>
+            </LayersControl>
             <DrawTools onWorkSite={setSite}/>
             <MapClickHandler enabled={placingPin} onSelect={choosePin}/>
             {workSite?.length > 2 && <Polygon positions={workSite} pathOptions={{ color: "#159a78", weight: 3, fillColor: "#159a78", fillOpacity: 0.12, dashArray: "7 5" }} />}
