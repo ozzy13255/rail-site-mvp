@@ -743,6 +743,30 @@ export default function App() {
     window.setTimeout(() => setToast(""), 3500);
   };
 
+  const selectWorksiteTasks = (row) => {
+    if (!row) return;
+    setWorksiteId(row.id);
+    setWorkSiteName(row.name || "");
+    setWorkRef(row.reference || "");
+    setWorkSite(Array.isArray(row.boundary) ? row.boundary : []);
+    setElr(row.elr || "");
+    setRouteReference(row.route_reference || "");
+    setStartMiles(row.start_miles ?? "");
+    setStartChains(row.start_chains ?? "");
+    setEndMiles(row.end_miles ?? "");
+    setEndChains(row.end_chains ?? "");
+    setAssignedPicopEmail(row.assigned_picop_email || "");
+    setPicopResponse(row.picop_response || "pending");
+    setPossessionStatus(row.possession_status || row.status || "Planning");
+    setPlannedStartAt(row.planned_start_at ? toLocalDateTime(row.planned_start_at) : "");
+    setPlannedEndAt(row.planned_end_at ? toLocalDateTime(row.planned_end_at) : "");
+    setTasks([]);
+    setSelectedId("");
+    setPhotoPreviews({});
+    setPhotoFiles({});
+    setActivePage("boards");
+  };
+
   const handleSignOut = async () => {
     if (!supabase) return;
     const { error } = await supabase.auth.signOut();
@@ -913,7 +937,7 @@ export default function App() {
               {["owner", "admin", "planner"].includes(membership.role) && <button className="calendar-add-day" onClick={() => startNewPossession(dateKey)} aria-label={`Add possession on ${dayDate.toLocaleDateString("en-GB")}`}>+ Plan</button>}
               <div className="calendar-day-events">
                 {entries.map(item => <div key={item.id} className="calendar-event-wrap">
-                  <button className={`calendar-event event-${statusClass(item.possession_status || item.status || "Planning")}`} onClick={() => ["owner", "admin", "planner"].includes(membership.role) ? openPossession(item) : setSelectedCalendarDate(dateKey)} title={item.name}>
+                  <button className={`calendar-event event-${statusClass(item.possession_status || item.status || "Planning")}`} onClick={() => ["owner", "admin", "planner"].includes(membership.role) ? openPossession(item) : selectWorksiteTasks(item)} title={item.name}>
                     <span>{item.name || "Untitled possession"}</span>
                     <small>{(item.possession_status || item.status || "").toLowerCase() === "cancelled" ? "CANCELLED · " : ""}{item.elr || "ELR TBC"}{item.start_miles !== null && item.start_miles !== undefined ? ` · ${item.start_miles}m ${String(item.start_chains ?? 0).padStart(2,"0")}ch` : ""}{item.assigned_picop_email ? ` · PICOP: ${item.assigned_picop_email}` : " · PICOP unassigned"}{item.picop_response && item.picop_response !== "pending" ? ` · ${item.picop_response.toUpperCase()}` : ""}</small>
                   </button>
@@ -1074,7 +1098,7 @@ export default function App() {
 
       {["owner", "admin", "picop", "member"].includes(membership.role) && activePage === "boards" && <aside className="side-panel" id="boards-screen">
         <div className="panel-heading">
-          <div><div className="eyebrow">PICOP DASHBOARD</div><h1>Work-site tasks</h1></div>
+          <div><div className="eyebrow">{membership.role === "member" ? "MY ASSIGNED TASKS" : membership.role === "picop" ? "PICOP DASHBOARD" : "WORKSITE TASKS"}</div><h1>{membership.role === "member" ? "My board tasks" : "Work-site tasks"}</h1>{["picop","member"].includes(membership.role) && <label className="worksite-task-picker">Work site<select value={worksiteId || ""} onChange={e => { const row = calendarWorksites.find(item => item.id === e.target.value); if (row) selectWorksiteTasks(row); }}><option value="" disabled>Select a work site…</option>{calendarWorksites.map(row => <option key={row.id} value={row.id}>{row.name || row.reference || "Untitled work site"}</option>)}</select></label>}</div>
           <span className="count-badge">{tasks.length}</span>
         </div>
         <div className="stat-grid">
