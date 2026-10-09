@@ -393,7 +393,20 @@ export default function App() {
       const { data, error } = await supabase.functions.invoke("create-profile", {
         body: { email: profileEmail.trim(), display_name: profileName.trim(), employee_number: profileEmployeeNumber.trim(), sentinel_number: profileSentinelNumber.trim(), temp_password: profileTempPassword, role: profileRole, company_id: membership.company_id }
       });
-      if (error) throw new Error(data?.error || error.message || "Could not create profile.");
+      if (error) {
+        let serverMessage = data?.error || "";
+        try {
+          const response = error.context;
+          if (!serverMessage && response?.clone) {
+            const bodyText = await response.clone().text();
+            try {
+              const body = JSON.parse(bodyText);
+              serverMessage = body?.error || body?.message || "";
+            } catch { serverMessage = bodyText; }
+          }
+        } catch {}
+        throw new Error(serverMessage || error.message || "Could not create profile.");
+      }
       if (data?.error) throw new Error(data.error);
       setToast(data?.message || "Account created. Share the temporary password privately.");
       setProfileName(""); setProfileEmail(""); setProfileEmployeeNumber(""); setProfileSentinelNumber(""); setProfileTempPassword(""); setProfileRole("planner");
