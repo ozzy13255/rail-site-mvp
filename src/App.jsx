@@ -287,6 +287,31 @@ export default function App() {
     return () => { active = false; };
   }, [membership?.company_id]);
 
+  // Keep the shared company calendar current for other signed-in members.
+  // Realtime is used when available, with a lightweight polling fallback.
+  useEffect(() => {
+    if (!supabase || !membership?.company_id) return;
+    let active = true;
+    const refreshCalendar = async () => {
+      const { data, error } = await supabase
+        .from("worksites")
+        .select("id, name, reference, description, boundary, status, possession_status, planned_start_at, planned_end_at, elr, route_reference, start_miles, start_chains, end_miles, end_chains, created_at")
+        .eq("company_id", membership.company_id)
+        .order("created_at", { ascending: false });
+      if (active && !error && data) setCalendarWorksites(data);
+    };
+    const channel = supabase
+      .channel("calendar-worksites-" + membership.company_id)
+      .on("postgres_changes", { event: "*", schema: "public", table: "worksites", filter: "company_id=eq." + membership.company_id }, refreshCalendar)
+      .subscribe();
+    const pollId = window.setInterval(refreshCalendar, 15000);
+    return () => {
+      active = false;
+      window.clearInterval(pollId);
+      void supabase.removeChannel(channel);
+    };
+  }, [membership?.company_id]);
+
   const saveWorksite = async () => {
     if (!supabase || !membership?.company_id) {
       setToast("You must be signed in to save a work site.");
@@ -334,7 +359,9 @@ export default function App() {
         end_miles: endMiles === "" ? null : Number(endMiles),
         end_chains: endChains === "" ? null : Number(endChains),
         possession_status: possessionStatus,
-        status: possessionStatus,
+        // The database status column has a constrained operational vocabulary;
+        // keep the user-facing planning status separately in possession_status.
+        status: ({ "Planning": "planned", "Briefing": "planned", "In progress": "active", "Suspended": "active", "Complete": "completed", "Cancelled": "cancelled" })[possessionStatus] || "planned",
         planned_start_at: plannedStartAt ? new Date(plannedStartAt).toISOString() : null,
         planned_end_at: plannedEndAt ? new Date(plannedEndAt).toISOString() : null,
         updated_at: new Date().toISOString()
@@ -380,7 +407,11 @@ export default function App() {
       setWorksiteId(savedWorksiteId);
       const { data: refreshedWorksites } = await supabase.from("worksites").select("id, name, reference, description, boundary, status, possession_status, planned_start_at, planned_end_at, elr, route_reference, start_miles, start_chains, end_miles, end_chains, created_at").eq("company_id", membership.company_id).order("created_at", { ascending: false });
       if (refreshedWorksites) setCalendarWorksites(refreshedWorksites);
-      setSelectedCalendarDate(plannedStartAt ? plannedStartAt.slice(0, 10) : selectedCalendarDate);
+      if (plannedStartAt) {
+        const savedDate = new Date(plannedStartAt);
+        setCalendarMonth(new Date(savedDate.getFullYear(), savedDate.getMonth(), 1));
+        setSelectedCalendarDate(plannedStartAt.slice(0, 10));
+      }
       setToast(boardTasks.length
         ? `Possession saved; ${savedBoardCount} marker board(s) saved too.`
         : "Possession saved to the planning calendar.");
