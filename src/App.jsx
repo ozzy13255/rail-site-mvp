@@ -629,6 +629,81 @@ export default function App() {
     }
   };
 
+  const exportPossessionPdf = async (item) => {
+    if (!supabase || !item?.id) { setToast("Cannot export this possession right now."); return; }
+    const popup = window.open("", "_blank");
+    if (!popup) { setToast("Allow pop-ups for RailSite to create the possession PDF."); return; }
+    popup.document.write("<!doctype html><title>Preparing possession report…</title><p style='font:16px Arial;padding:24px'>Preparing possession report and loading marker-board evidence…</p>");
+    try {
+      const { data: boards, error } = await supabase
+        .from("marker_boards")
+        .select("id, board_code, label, latitude, longitude, status, assigned_email, elr, route_reference, mileage_miles, mileage_chains, notes, photo_url, submitted_latitude, submitted_longitude, submitted_gps_accuracy_m, submitted_at, verified_at, verified_by_email, verification_notes, placement_requested_at")
+        .eq("worksite_id", item.id)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      const boardRows = await Promise.all((boards || []).map(async (board) => {
+        let photo = "";
+        if (board.photo_url) {
+          const { data } = await supabase.storage.from("railsite-board-evidence").createSignedUrl(board.photo_url, 3600);
+          photo = data?.signedUrl || "";
+        }
+        return { ...board, reportPhotoUrl: photo };
+      }));
+      const esc = (value) => String(value ?? "Not recorded").replace(/[&<>"']/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[ch]));
+      const dateTime = (value) => value ? new Date(value).toLocaleString("en-GB", { dateStyle:"medium", timeStyle:"medium" }) : "Not recorded";
+      const coords = (lat, lng) => lat != null && lng != null ? `${Number(lat).toFixed(6)}, ${Number(lng).toFixed(6)}` : "Not recorded";
+      const boardHtml = boardRows.length ? boardRows.map((board, index) => `
+        <section class="board">
+          <h2>Marker board ${index + 1}: ${esc(board.label || board.board_code)}</h2>
+          <div class="grid">
+            <p><b>Board reference</b><br>${esc(board.board_code)}</p>
+            <p><b>Status at export</b><br>${esc(board.status)}</p>
+            <p><b>Assigned to</b><br>${esc(board.assigned_email)}</p>
+            <p><b>Placement requested</b><br>${dateTime(board.placement_requested_at)}</p>
+            <p><b>Placement evidence submitted</b><br>${dateTime(board.submitted_at)}</p>
+            <p><b>PICOP verified</b><br>${dateTime(board.verified_at)}</p>
+            <p><b>Verified by</b><br>${esc(board.verified_by_email)}</p>
+            <p><b>Planned board location</b><br>${coords(board.latitude, board.longitude)}</p>
+            <p><b>Submitted GPS location</b><br>${coords(board.submitted_latitude, board.submitted_longitude)}</p>
+            <p><b>GPS accuracy</b><br>${board.submitted_gps_accuracy_m != null ? esc(board.submitted_gps_accuracy_m) + " m" : "Not recorded"}</p>
+            <p><b>Railway location</b><br>${esc(board.elr)} · ${esc(board.route_reference)} · ${board.mileage_miles != null ? esc(board.mileage_miles) + " miles " + esc(board.mileage_chains ?? 0) + " chains" : "Mileage not recorded"}</p>
+            <p><b>Board notes</b><br>${esc(board.notes)}</p>
+            <p><b>PICOP verification notes</b><br>${esc(board.verification_notes)}</p>
+          </div>
+          ${board.reportPhotoUrl ? `<div class="photo-wrap"><b>Submitted placement photo</b><br><img src="${esc(board.reportPhotoUrl)}" alt="Placement evidence for ${esc(board.label || board.board_code)}"></div>` : "<p class='missing'>No placement photo was saved for this board.</p>"}
+        </section>`).join("") : "<p>No marker boards are recorded against this possession.</p>";
+      popup.document.open();
+      popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Possession report - ${esc(item.reference || item.name)}</title><style>
+        *{box-sizing:border-box}body{font:12px Arial,sans-serif;color:#17212b;margin:28px;line-height:1.45}header{border-bottom:3px solid #17344a;padding-bottom:14px;margin-bottom:20px}h1{font-size:25px;margin:0 0 5px}h2{font-size:16px;margin:0 0 12px;color:#17344a}p{margin:5px 0 10px;overflow-wrap:anywhere}.muted{color:#536575}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 18px}.summary{background:#f0f4f7;padding:14px;border-radius:8px;margin-bottom:22px}.board{padding:18px 0;border-top:1px solid #b9c7d1;break-inside:avoid}.photo-wrap{margin-top:12px}.photo-wrap img{display:block;max-width:100%;max-height:520px;object-fit:contain;margin-top:8px;border:1px solid #d3dce3}.missing{color:#9b2525;font-weight:bold}.footer{margin-top:26px;padding-top:10px;border-top:1px solid #b9c7d1;font-size:10px;color:#536575}@media print{body{margin:12mm}.board{break-inside:avoid}button{display:none}}
+      </style></head><body>
+        <header><h1>Possession Close-out Report</h1><div class="muted">RailSite · Evidence record for retention</div></header>
+        <section class="summary"><h2>Possession details</h2><div class="grid">
+          <p><b>Worksite / possession</b><br>${esc(item.name)}</p>
+          <p><b>Reference</b><br>${esc(item.reference)}</p>
+          <p><b>ELR</b><br>${esc(item.elr)}</p>
+          <p><b>Route</b><br>${esc(item.route_reference)}</p>
+          <p><b>Start mileage</b><br>${item.start_miles != null ? esc(item.start_miles) + " miles " + esc(item.start_chains ?? 0) + " chains" : "Not recorded"}</p>
+          <p><b>End mileage</b><br>${item.end_miles != null ? esc(item.end_miles) + " miles " + esc(item.end_chains ?? 0) + " chains" : "Not recorded"}</p>
+          <p><b>Planned start</b><br>${dateTime(item.planned_start_at)}</p>
+          <p><b>Planned finish</b><br>${dateTime(item.planned_end_at)}</p>
+          <p><b>PICOP</b><br>${esc(item.assigned_picop_email)}</p>
+          <p><b>PICOP response</b><br>${esc(item.picop_response)} ${item.picop_response_at ? "· " + dateTime(item.picop_response_at) : ""}</p>
+          <p><b>Possession status</b><br>${esc(item.possession_status || item.status)}</p>
+          <p><b>Report generated</b><br>${dateTime(new Date().toISOString())}</p>
+        </div></section>
+        <h2>Marker-board placement and verification evidence</h2>
+        ${boardHtml}
+        <div class="footer">Generated from the information currently saved in RailSite. Placement time is the timestamp when placement evidence was submitted; it is not an independently measured physical placement time. Missing fields or photographs were not available in the saved record at export.</div>
+        <script>window.addEventListener('load',()=>{const imgs=[...document.images];Promise.all(imgs.map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.onload=resolve;img.onerror=resolve}))).then(()=>setTimeout(()=>window.print(),300));});</script>
+      </body></html>`);
+      popup.document.close();
+      setToast("Possession report prepared. Choose Save as PDF in the print window.");
+    } catch (error) {
+      popup.close();
+      setToast("Could not export possession report: " + (error?.message || "Please try again."));
+    }
+  };
+
   const cancelWorksite = async () => {
     if (!worksiteId || !supabase || !membership?.company_id) return;
     if (!window.confirm(`Cancel work site "${workSiteName}"? It will remain on the calendar in red as CANCELLED.`)) return;
@@ -1038,6 +1113,7 @@ export default function App() {
                     <span>{item.name || "Untitled possession"}</span>
                     <small>{(item.possession_status || item.status || "").toLowerCase() === "cancelled" ? "CANCELLED · " : ""}{item.elr || "ELR TBC"}{item.start_miles !== null && item.start_miles !== undefined ? ` · ${item.start_miles}m ${String(item.start_chains ?? 0).padStart(2,"0")}ch` : ""}{item.assigned_picop_email ? ` · PICOP: ${item.assigned_picop_email}` : " · PICOP unassigned"}{item.picop_response && item.picop_response !== "pending" ? ` · ${item.picop_response.toUpperCase()}` : ""}</small>
                   </button>
+                  {["owner", "admin", "planner"].includes(membership.role) && ["complete", "completed"].includes(String(item.possession_status || item.status || "").toLowerCase()) && <div className="picop-event-actions"><button type="button" className="request-boards-button" onClick={() => exportPossessionPdf(item)}>Export close-out PDF</button></div>}
                   {membership.role === "picop" && (item.picop_response || "pending") === "pending" && <div className="picop-event-actions"><button type="button" onClick={() => respondToPossession(item,"accepted")} disabled={workflowBusyId === item.id}>Accept</button><button type="button" onClick={() => respondToPossession(item,"declined")} disabled={workflowBusyId === item.id}>Decline</button></div>}
                   {membership.role === "picop" && item.picop_response === "accepted" && !item.board_placement_requested_at && <div className="picop-event-actions"><button type="button" className="request-boards-button" onClick={() => requestBoardPlacement(item)} disabled={workflowBusyId === item.id}>Request board placement</button></div>}
                   {membership.role === "picop" && item.board_placement_requested_at && <div className="picop-event-actions"><button className="request-boards-button" type="button" onClick={() => activateWorksite(item)} disabled={workflowBusyId === item.id || item.activated_at}>{item.activated_at ? "Work site active" : workflowBusyId === item.id ? "Checking board evidence…" : "Activate work site"}</button></div>}
