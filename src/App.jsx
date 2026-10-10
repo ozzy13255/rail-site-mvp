@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { MapContainer, TileLayer, Marker, Popup, Polygon, LayersControl, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Polygon, LayersControl, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet-draw";
 import "leaflet-draw/dist/leaflet.draw.css";
@@ -145,6 +145,23 @@ function DrawTools({ onWorkSite }) {
       map.removeLayer(drawnItems);
     };
   }, [map, onWorkSite]);
+  return null;
+}
+
+function FitBoardMap({ tasks, selectedId }) {
+  const map = useMap();
+  useEffect(() => {
+    const points = tasks.flatMap(task => {
+      const out = [];
+      const lat = Number(task.position?.[0]), lng = Number(task.position?.[1]);
+      if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && (lat !== 0 || lng !== 0)) out.push([lat,lng]);
+      const gpsLat = Number(task.submittedLatitude), gpsLng = Number(task.submittedLongitude);
+      if (task.submittedLatitude != null && task.submittedLongitude != null && Number.isFinite(gpsLat) && Number.isFinite(gpsLng) && Math.abs(gpsLat) <= 90 && Math.abs(gpsLng) <= 180 && (gpsLat !== 0 || gpsLng !== 0)) out.push([gpsLat,gpsLng]);
+      return out;
+    });
+    if (points.length === 1) map.setView(points[0], 17, { animate: false });
+    else if (points.length > 1) map.fitBounds(L.latLngBounds(points), { padding: [28,28], maxZoom: 17, animate: false });
+  }, [map, tasks, selectedId]);
   return null;
 }
 
@@ -1473,7 +1490,7 @@ export default function App() {
       </section>}
 
       {["owner", "admin", "picop", "member"].includes(membership.role) && activePage === "boards" && <aside className="side-panel" id="boards-screen">
-        <div className="board-task-map-card"><div className="board-task-map-heading"><strong>Marker-board map</strong><span>{membership.role === "member" ? "View only" : membership.role === "picop" ? "Review GPS and place unplaced boards" : "Map reference"}</span></div>{calendarWorksites.find(row => row.id === worksiteId)?.activated_at && <div className="worksite-granted-banner"><span>✓</span><strong>Worksite granted</strong></div>}{membership.role === "picop" && selected?.dbId && <button type="button" className="btn btn-secondary btn-full" onClick={() => setPlacingPicopBoard(v => !v)}>{placingPicopBoard ? "Tap map to place selected board…" : "Place selected board on map"}</button>}<div className="board-task-map"><MapContainer center={selected?.position || [52.915,-0.636]} zoom={14} minZoom={5} maxZoom={19} scrollWheelZoom={true}><TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/><MapClickHandler enabled={placingPicopBoard && membership.role === "picop"} onSelect={placeBoardOnMap}/>{tasks.map(task => <Marker key={task.id} position={task.submittedLatitude != null && task.submittedLongitude != null ? [Number(task.submittedLatitude), Number(task.submittedLongitude)] : task.position} icon={task.status === "Verified" ? placedBoardIcon : task.submittedLatitude != null ? submittedBoardIcon : boardIcon} eventHandlers={{click:()=>setSelectedId(task.id)}}><Popup><strong>{task.label}</strong><br/>{task.status}{task.submittedLatitude != null && <><br/>GPS placement recorded<br/>±{task.submittedGpsAccuracy ?? "?"} m</>}</Popup></Marker>)}</MapContainer></div><small className="map-safety-note">Check submitted GPS against the approved railway reference and required tolerances. A GPS pin alone does not certify safe or correct placement.</small></div>
+        <div className="board-task-map-card"><div className="board-task-map-heading"><strong>Marker-board map</strong><span>{membership.role === "member" ? "View only" : membership.role === "picop" ? "Review GPS and place unplaced boards" : "Map reference"}</span></div>{calendarWorksites.find(row => row.id === worksiteId)?.activated_at && <div className="worksite-granted-banner"><span>✓</span><strong>Worksite granted</strong></div>}{membership.role === "picop" && selected?.dbId && <button type="button" className="btn btn-secondary btn-full" onClick={() => setPlacingPicopBoard(v => !v)}>{placingPicopBoard ? "Tap map to place selected board…" : "Place selected board on map"}</button>}<div className="board-task-map"><MapContainer center={selected?.position || [52.915,-0.636]} zoom={14} minZoom={5} maxZoom={19} scrollWheelZoom={true}><TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/><FitBoardMap tasks={tasks} selectedId={selectedId}/><MapClickHandler enabled={placingPicopBoard && membership.role === "picop"} onSelect={placeBoardOnMap}/>{tasks.map(task => <React.Fragment key={task.id}><Marker position={task.position} icon={boardIcon} eventHandlers={{click:()=>setSelectedId(task.id)}}><Popup><strong>{task.label}</strong><br/>Planner reference location<br/>{task.status}</Popup></Marker>{task.submittedLatitude != null && task.submittedLongitude != null && <><Marker position={[Number(task.submittedLatitude),Number(task.submittedLongitude)]} icon={task.status === "Verified" ? placedBoardIcon : submittedBoardIcon} eventHandlers={{click:()=>setSelectedId(task.id)}}><Popup><strong>{task.label} — GPS evidence</strong><br/>{task.status}<br/>Submitted GPS location<br/>Accuracy ±{task.submittedGpsAccuracy ?? "?"} m</Popup></Marker><Polyline positions={[task.position,[Number(task.submittedLatitude),Number(task.submittedLongitude)]]} pathOptions={{color:task.status === "Verified" ? "#168653" : "#d18a21",weight:2,dashArray:"5 5"}}/></>}</React.Fragment>)}</MapContainer></div><small className="map-safety-note">Check submitted GPS against the approved railway reference and required tolerances. A GPS pin alone does not certify safe or correct placement.</small></div>
         <div className="panel-heading">
           <div><div className="eyebrow">{membership.role === "member" ? "MY ASSIGNED TASKS" : membership.role === "picop" ? "PICOP DASHBOARD" : "WORKSITE TASKS"}</div><h1>{membership.role === "member" ? "Marker boards & tasks" : "Marker boards & tasks"}</h1>{["picop","member"].includes(membership.role) && <label className="worksite-task-picker">Work site<select value={worksiteId || ""} onChange={e => { const row = calendarWorksites.find(item => item.id === e.target.value); if (row) selectWorksiteTasks(row); }}><option value="" disabled>Select a work site…</option>{calendarWorksites.map(row => <option key={row.id} value={row.id}>{row.name || row.reference || "Untitled work site"}</option>)}</select></label>}</div>
           <span className="count-badge">{tasks.length}</span>
