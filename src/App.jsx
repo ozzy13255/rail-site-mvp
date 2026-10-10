@@ -958,14 +958,18 @@ export default function App() {
           };
         });
         setTasks(loaded);
-        setSelectedId(loaded[0].id);
+        setSelectedId(previous => loaded.some(task => task.id === previous) ? previous : loaded[0].id);
       } else {
         setTasks([]);
         setSelectedId("");
       }
     };
     void loadBoards();
-    return () => { active = false; };
+    const refreshId = window.setInterval(loadBoards, 7000);
+    const channel = supabase.channel("marker-boards-" + worksiteId)
+      .on("postgres_changes", { event: "*", schema: "public", table: "marker_boards", filter: "worksite_id=eq." + worksiteId }, loadBoards)
+      .subscribe();
+    return () => { active = false; window.clearInterval(refreshId); void supabase.removeChannel(channel); };
   }, [membership?.company_id, worksiteId]);
 
   const startNewPossession = (dateString) => {
