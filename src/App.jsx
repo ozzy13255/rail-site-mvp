@@ -944,7 +944,7 @@ export default function App() {
       if (data?.length) {
         const loaded = data.map((row, index) => {
           const code = row.board_code || row.label || `MB-${String(index + 1).padStart(2, "0")}`;
-          const status = row.status === "verified" ? "Verified" : row.status === "placed" ? "Awaiting PICOP verification" : row.status === "removal_requested" ? "Removal requested" : row.status === "removed" ? "Removed" : row.status === "removal_submitted" ? "Removal evidence submitted" : row.assigned_email ? "Assigned" : "Unassigned";
+          const status = row.status === "verified" ? "Verified" : row.status === "placed" ? "Awaiting PICOP verification" : row.status === "removal_requested" ? "Removal requested" : row.status === "removed" ? "Removed" : row.status === "removal_submitted" ? "Removal evidence submitted" : row.status === "planned" ? (row.placement_requested_at ? "Awaiting placement" : row.assigned_email ? "Assigned" : "Unassigned") : row.assigned_email ? "Assigned" : "Unassigned";
           return {
             id: code,
             dbId: row.id,
