@@ -534,3 +534,20 @@ body{background:#0b1420;color:#e8eef4}
 }
 .operative-submitted-state strong { font-size: 15px; }
 .operative-submitted-state span, .operative-submitted-state small { font-size: 13px; line-height: 1.45; }
+
+
+/* Marker-board evidence, read-only member map and placement verification */
+.board-task-map-card{background:#101e2c;border:1px solid #294257;border-radius:12px;padding:13px;margin-bottom:12px;color:#e8eef4}
+.board-task-map-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.board-task-map-heading strong{font:800 13px Manrope,sans-serif;color:#f4f7fa}
+.board-task-map-heading span{font-size:10px;color:#a9bdcc}
+.board-task-map{height:300px;overflow:hidden;border-radius:8px;border:1px solid #354c5e;margin-top:10px}
+.board-task-map .leaflet-container{height:100%;width:100%;z-index:1}
+.board-marker-placed{background:#168653!important;border-color:#fff!important;color:#fff!important;box-shadow:0 2px 9px #0b1420a0}
+.board-task-map-card .map-safety-note{display:block;color:#b8c7d2;font-size:10px;line-height:1.5;margin:9px 0 0}
+.status-pill.removal-requested,.status-pill.removal-evidence-submitted{background:#4a351b;color:#ffd89a;border:1px solid #89612d}
+.status-pill.removed{background:#153d2d;color:#a5f1c8;border:1px solid #287e57}
+.operative-submitted-state{display:flex;flex-direction:column;gap:6px;background:#103c2d;border:1px solid #267c58;color:#c4f4dc;border-radius:8px;padding:12px;margin-top:10px}
+.operative-submitted-state strong{font-size:12px;color:#b7f1d2}
+.operative-submitted-state span,.operative-submitted-state small{font-size:10px;line-height:1.45}
+@media(max-width:800px){.board-task-map{height:260px}.board-task-map-card{padding:10px}.board-task-map-heading{align-items:flex-start;flex-direction:column;gap:4px}}
