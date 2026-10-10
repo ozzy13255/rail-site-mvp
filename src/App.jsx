@@ -1109,13 +1109,16 @@ export default function App() {
       const path = `${worksiteId}/${selected.dbId}/${Date.now()}-${safeName}`;
       const { error: uploadError } = await supabase.storage.from("railsite-board-evidence").upload(path, file, { contentType: file.type, upsert: false });
       if (uploadError) throw uploadError;
-      const { error } = await supabase.rpc("operative_submit_marker_board", {
+      const { data: submission, error } = await supabase.rpc("operative_submit_marker_board", {
         p_marker_board_id: selected.dbId, p_photo_path: path,
         p_latitude: gps.position[0], p_longitude: gps.position[1], p_accuracy_m: gps.accuracy
       });
       if (error) throw error;
+      if (!submission?.success) throw new Error("The server did not confirm the board evidence submission.");
       updateTask(selected.id, { status: "Awaiting PICOP verification", photoUrl: path, submittedLatitude: gps.position[0], submittedLongitude: gps.position[1], submittedGpsAccuracy: gps.accuracy, submittedAt: new Date().toISOString() });
-      setToast("Board placement submitted with photo and GPS evidence. The PICOP has been notified.");
+      setToast(submission.picop_notified === false
+        ? "Board evidence was saved, but no PICOP email is assigned to this work site. Ask the Planner to correct the assignment."
+        : "Board placement submitted with photo and GPS evidence. The PICOP has been notified.");
     } catch (error) { setToast("Could not submit board evidence: " + (error?.message || "Please try again.")); }
     finally { setWorkflowBusyId(""); }
   };
