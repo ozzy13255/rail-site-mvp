@@ -583,3 +583,9 @@ body{background:#0b1420;color:#e8eef4}
 @keyframes countdown-urgent-pulse{from{opacity:.82}to{opacity:1}}
 @media(max-width:600px){.active-possession-countdown{padding:14px 15px}.countdown-clock{font-size:clamp(32px,10vw,48px)}.countdown-heading strong{font-size:13px}}
 @media(prefers-reduced-motion:reduce){.active-possession-countdown:before,.active-possession-countdown:after,.countdown-live-dot,.countdown-clock{animation:none!important}}
+
+.board-map-legend{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 0;padding:0;list-style:none;color:#c6d6e2;font-size:10px}
+.board-map-legend li{display:flex;align-items:center;gap:6px}
+.board-map-legend-dot{display:inline-block;width:10px;height:10px;border:2px solid #fff;border-radius:3px;background:#d18a21}
+.board-map-legend-dot.gps{background:#168653;border-radius:50%}
+.board-map-legend-dot.pending{background:#d18a21;border-radius:50%}
