@@ -103,11 +103,8 @@ function LoginScreen({ configured, loading, error, onSignIn, onResetPassword }) 
 
 const statusClass = (status) => status.toLowerCase().replaceAll(" ", "-");
 const toLocalDateTime = (value) => { const date = new Date(value); return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}T${String(date.getHours()).padStart(2,"0")}:${String(date.getMinutes()).padStart(2,"0")}`; };
-const boardIcon = L.divIcon({
-  className: "board-marker-wrap",
-  html: '<div class="board-marker">B</div>',
-  iconSize: [30, 36], iconAnchor: [15, 34]
-});
+const boardIcon = L.divIcon({ className: "board-marker-wrap", html: '<div class="board-marker">B</div>', iconSize: [30, 36], iconAnchor: [15, 34] });
+const placedBoardIcon = L.divIcon({ className: "board-marker-wrap", html: '<div class="board-marker board-marker-placed">✓</div>', iconSize: [32, 38], iconAnchor: [16, 36] });
 const personIcon = L.divIcon({
   className: "person-marker-wrap",
   html: '<div class="person-marker"><span>●</span></div>',
@@ -558,7 +555,7 @@ export default function App() {
     setPicopAssignmentOpen(true);
     setPicopAssignmentLoading(true);
     const { data, error } = await supabase.from("marker_boards")
-      .select("id, label, board_code, status, assigned_to, assigned_email, placement_requested_at, submitted_at, verified_at, elr, route_reference, mileage_miles, mileage_chains")
+      .select("id, label, board_code, status, assigned_to, assigned_email, placement_requested_at, submitted_at, verified_at, photo_url, submitted_latitude, submitted_longitude, submitted_gps_accuracy_m, verification_notes, latitude, longitude, elr, route_reference, mileage_miles, mileage_chains")
       .eq("worksite_id", item.id).order("created_at", { ascending: true });
     if (error) setToast("Could not load this possession's marker boards: " + error.message);
     else {
@@ -928,7 +925,7 @@ export default function App() {
       if (data?.length) {
         const loaded = data.map((row, index) => {
           const code = row.board_code || row.label || `MB-${String(index + 1).padStart(2, "0")}`;
-          const status = row.status === "verified" ? "Verified" : row.status === "placed" ? "Awaiting PICOP verification" : row.assigned_email ? "Assigned" : "Unassigned";
+          const status = row.status === "verified" ? "Verified" : row.status === "placed" ? "Awaiting PICOP verification" : row.status === "removal_requested" ? "Removal requested" : row.status === "removed" ? "Removed" : row.status === "removal_submitted" ? "Removal evidence submitted" : row.assigned_email ? "Assigned" : "Unassigned";
           return {
             id: code,
             dbId: row.id,
@@ -941,6 +938,11 @@ export default function App() {
             submittedGpsAccuracy: row.submitted_gps_accuracy_m,
             submittedAt: row.submitted_at,
             verifiedAt: row.verified_at,
+            removalRequestedAt: row.removal_requested_at || null,
+            removalPhotoUrl: row.removal_photo_url || null,
+            removalSubmittedAt: row.removal_submitted_at || null,
+            removalLatitude: row.removal_latitude ?? null,
+            removalLongitude: row.removal_longitude ?? null,
             verificationNotes: row.verification_notes || "",
             placementRequestedAt: row.placement_requested_at,
             status,
@@ -1136,6 +1138,10 @@ export default function App() {
   };
 
   const activateWorksite = async (item) => {
+    if (!supabase || !item?.id) return;
+    const { data: boardRows, error: boardCheckError } = await supabase.from("marker_boards").select("id, status, submitted_at, verified_at").eq("worksite_id", item.id);
+    if (boardCheckError) { setToast("Could not check marker-board verification: " + boardCheckError.message); return; }
+    if (!boardRows?.length || boardRows.some(board => board.status !== "verified" || !board.verified_at || !board.submitted_at)) { setToast("Worksite cannot be activated. Every required marker board must have submitted evidence verified by the PICOP."); return; }
     setWorkflowBusyId(item.id);
     const { data, error } = await supabase.rpc("picop_activate_worksite", { p_worksite_id: item.id });
     if (error) setToast("Work site cannot be activated yet: " + error.message);
@@ -1198,7 +1204,7 @@ export default function App() {
         {membership.role !== "member" && membership.role !== "planner" && <button className={`sidebar-link ${activePage === "overview" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("overview")}><span className="sidebar-icon">▦</span><span className="sidebar-label">{membership.role === "picop" ? "PICOP overview" : "Overview"}</span></button>}
         {membership.role !== "member" && membership.role !== "planner" && membership.role !== "picop" && <button className={`sidebar-link ${activePage === "calendar" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("calendar")}><span className="sidebar-icon">▦</span><span className="sidebar-label">Possession calendar</span></button>}
         {["owner", "admin"].includes(membership.role) && <button className={`sidebar-link ${activePage === "map" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("map")}><span className="sidebar-icon">⌖</span><span className="sidebar-label">Worksites &amp; map</span></button>}
-        {membership.role !== "planner" && membership.role !== "picop" && <button className={`sidebar-link ${activePage === "boards" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("boards")}><span className="sidebar-icon">⚑</span><span className="sidebar-label">Marker boards &amp; tasks</span></button>}{membership.role === "member" && <button className={`sidebar-link ${activePage === "boards" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("boards")}><span className="sidebar-icon">⚑</span><span className="sidebar-label">My board tasks</span></button>}
+        {membership.role !== "planner" && membership.role !== "picop" && <button className={`sidebar-link ${activePage === "boards" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("boards")}><span className="sidebar-icon">⚑</span><span className="sidebar-label">Marker boards &amp; tasks</span></button>}{membership.role === "member" && <button className={`sidebar-link ${activePage === "boards" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("boards")}><span className="sidebar-icon">⚑</span><span className="sidebar-label">Marker boards &amp; tasks</span></button>}
         {["owner", "admin"].includes(membership.role) && <button className={`sidebar-link ${activePage === "profiles" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("profiles")}><span className="sidebar-icon">♙</span><span className="sidebar-label">Manage profiles</span></button>}
         <button className={`sidebar-link ${activePage === "line-blockages" ? "sidebar-link-active" : ""}`} onClick={() => setActivePage("line-blockages")}><span className="sidebar-icon">▣</span><span className="sidebar-label">Line blockages</span></button>
         <div className="sidebar-spacer"></div><div className="sidebar-footer"><span className="online-dot"/><span className="sidebar-label">Company workspace</span></div>
@@ -1239,7 +1245,7 @@ export default function App() {
                   {["owner", "admin", "planner"].includes(membership.role) && ["complete", "completed"].includes(String(item.possession_status || item.status || "").toLowerCase()) && <div className="picop-event-actions"><button type="button" className="request-boards-button" onClick={() => exportPossessionPdf(item)}>Export close-out PDF</button></div>}
                   {membership.role === "picop" && isAssignedToCurrentPicop(item) && (item.picop_response || "pending") === "pending" && <div className="picop-event-actions"><button type="button" onClick={() => respondToPossession(item,"accepted")} disabled={workflowBusyId === item.id}>Accept</button><button type="button" onClick={() => respondToPossession(item,"declined")} disabled={workflowBusyId === item.id}>Decline</button></div>}
                   {membership.role === "picop" && isAssignedToCurrentPicop(item) && item.picop_response === "accepted" && !item.board_placement_requested_at && <div className="picop-event-actions"><button type="button" className="request-boards-button" onClick={() => openPicopPossession(item)}>Assign users &amp; request boards</button></div>}
-                  {membership.role === "picop" && isAssignedToCurrentPicop(item) && item.board_placement_requested_at && <div className="picop-event-actions"><button className="request-boards-button" type="button" onClick={() => openPicopPossession(item)}>View board assignments</button><button className="request-boards-button" type="button" onClick={() => activateWorksite(item)} disabled={workflowBusyId === item.id || item.activated_at}>{item.activated_at ? "Work site active" : workflowBusyId === item.id ? "Checking board evidence…" : "Activate work site"}</button></div>}
+                  {membership.role === "picop" && isAssignedToCurrentPicop(item) && item.board_placement_requested_at && <div className="picop-event-actions"><button className="request-boards-button" type="button" onClick={() => { selectWorksiteTasks(item); setActivePage("boards"); }}>View marker boards &amp; map</button><button className="request-boards-button" type="button" onClick={() => activateWorksite(item)} disabled={workflowBusyId === item.id || item.activated_at}>{item.activated_at ? "Work site granted" : workflowBusyId === item.id ? "Checking board evidence…" : "Activate work site"}</button></div>}
                 </div>)}
               </div>
             </div>;
@@ -1391,11 +1397,11 @@ export default function App() {
                 />
               </LayersControl.Overlay>
             </LayersControl>
-            <DrawTools onWorkSite={setSite}/>
-            <MapClickHandler enabled={placingPin} onSelect={choosePin}/>
+            {["owner", "admin", "planner"].includes(membership.role) && <DrawTools onWorkSite={setSite}/>}
+            <MapClickHandler enabled={["owner", "admin", "planner", "picop"].includes(membership.role) && placingPin} onSelect={choosePin}/>
             {workSite?.length > 2 && <Polygon positions={workSite} pathOptions={{ color: "#159a78", weight: 3, fillColor: "#159a78", fillOpacity: 0.12, dashArray: "7 5" }} />}
-            {tasks.map(task => <Marker key={task.id} position={task.position} icon={boardIcon} eventHandlers={{ click: () => setSelectedId(task.id) }}>
-              <Popup><strong>{task.label}</strong><br/>{task.id}<br/>Assigned: {task.assignee}<br/>Status: {task.status}</Popup>
+            {tasks.map(task => <Marker key={task.id} position={task.submittedLatitude != null && task.submittedLongitude != null ? [Number(task.submittedLatitude), Number(task.submittedLongitude)] : task.position} icon={task.status === "Verified" || task.submittedLatitude != null ? placedBoardIcon : boardIcon} eventHandlers={{ click: () => setSelectedId(task.id) }}>
+              <Popup><strong>{task.label}</strong><br/>{task.id}<br/>Assigned: {task.assignee}<br/>Status: {task.status}{task.submittedLatitude != null && <><br/><strong>GPS placed</strong><br/>GPS: {Number(task.submittedLatitude).toFixed(6)}, {Number(task.submittedLongitude).toFixed(6)}<br/>Accuracy: ±{task.submittedGpsAccuracy ?? "?"} m</>}</Popup>
             </Marker>)}
             {gps && <Marker position={gps.position} icon={personIcon}><Popup><strong>Your reported location</strong><br/>Accuracy: ±{gps.accuracy} m<br/>{gps.time.toLocaleTimeString()}</Popup></Marker>}
           </MapContainer>
@@ -1417,7 +1423,7 @@ export default function App() {
 
       {["owner", "admin", "picop", "member"].includes(membership.role) && activePage === "boards" && <aside className="side-panel" id="boards-screen">
         <div className="panel-heading">
-          <div><div className="eyebrow">{membership.role === "member" ? "MY ASSIGNED TASKS" : membership.role === "picop" ? "PICOP DASHBOARD" : "WORKSITE TASKS"}</div><h1>{membership.role === "member" ? "My board tasks" : "Work-site tasks"}</h1>{["picop","member"].includes(membership.role) && <label className="worksite-task-picker">Work site<select value={worksiteId || ""} onChange={e => { const row = calendarWorksites.find(item => item.id === e.target.value); if (row) selectWorksiteTasks(row); }}><option value="" disabled>Select a work site…</option>{calendarWorksites.map(row => <option key={row.id} value={row.id}>{row.name || row.reference || "Untitled work site"}</option>)}</select></label>}</div>
+          <div><div className="eyebrow">{membership.role === "member" ? "MY ASSIGNED TASKS" : membership.role === "picop" ? "PICOP DASHBOARD" : "WORKSITE TASKS"}</div><h1>{membership.role === "member" ? "Marker boards & tasks" : "Marker boards & tasks"}</h1>{["picop","member"].includes(membership.role) && <label className="worksite-task-picker">Work site<select value={worksiteId || ""} onChange={e => { const row = calendarWorksites.find(item => item.id === e.target.value); if (row) selectWorksiteTasks(row); }}><option value="" disabled>Select a work site…</option>{calendarWorksites.map(row => <option key={row.id} value={row.id}>{row.name || row.reference || "Untitled work site"}</option>)}</select></label>}</div>
           <span className="count-badge">{tasks.length}</span>
         </div>
         <div className="stat-grid">
@@ -1469,10 +1475,10 @@ export default function App() {
             <div><span>Map latitude</span><strong>{selected.position[0].toFixed(6)}</strong></div>
             <div><span>Map longitude</span><strong>{selected.position[1].toFixed(6)}</strong></div>
           </div>
-          {membership.role === "member" && <button className="btn btn-secondary btn-full" onClick={requestGps}>◎ Get my current GPS location</button>}
+          {membership.role === "member" && !["Awaiting PICOP verification", "Verified", "Removal requested", "Removal evidence submitted", "Removed"].includes(selected.status) && <button className="btn btn-secondary btn-full" onClick={requestGps}>◎ Get my current GPS location</button>}
           {gpsError && <div className="inline-error">{gpsError}</div>}
           {gps && <div className="gps-confirm"><span className="online-dot"/> Location acquired · ±{gps.accuracy} m</div>}
-          {membership.role === "member" && <div className="field photo-field">
+          {membership.role === "member" && !["Awaiting PICOP verification", "Verified", "Removal requested", "Removal evidence submitted", "Removed"].includes(selected.status) && <div className="field photo-field">
             <label htmlFor="photo">Photo evidence</label>
             <label className="upload-zone" htmlFor="photo">
               {photoPreviews[selected.id] ? <img src={photoPreviews[selected.id]} alt="Selected task evidence preview"/> : <><span className="upload-icon">↑</span><strong>Choose a photo</strong><small>Use your phone camera or select an image</small></>}
