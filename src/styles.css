@@ -551,3 +551,6 @@ body{background:#0b1420;color:#e8eef4}
 .operative-submitted-state strong{font-size:12px;color:#b7f1d2}
 .operative-submitted-state span,.operative-submitted-state small{font-size:10px;line-height:1.45}
 @media(max-width:800px){.board-task-map{height:260px}.board-task-map-card{padding:10px}.board-task-map-heading{align-items:flex-start;flex-direction:column;gap:4px}}
+
+.board-marker-submitted{background:#d18a21!important;border-color:#fff!important;color:#fff!important;font-size:8px!important;transform:rotate(-45deg)}
+.picop-event-actions .request-boards-button:disabled{opacity:.5;cursor:not-allowed}
