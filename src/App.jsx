@@ -233,6 +233,7 @@ export default function App() {
   const [picopAssignmentLoading, setPicopAssignmentLoading] = useState(false);
   const [picopAssignmentSaving, setPicopAssignmentSaving] = useState(false);
   const [picopBoardAssignees, setPicopBoardAssignees] = useState({});
+  const [placingPicopBoard, setPlacingPicopBoard] = useState(false);
 
 
   useEffect(() => {
@@ -1068,6 +1069,16 @@ export default function App() {
     window.setTimeout(() => setToast(""), 3500);
   }, [placingPin, tasks.length]);
 
+  const placeBoardOnMap = async (position) => {
+    if (!["picop", "owner", "admin", "planner"].includes(membership?.role)) return;
+    if (!selected?.dbId || !worksiteId) { setToast("Select a saved marker board before placing it on the map."); setPlacingPicopBoard(false); return; }
+    setWorkflowBusyId(selected.id);
+    const { data, error } = await supabase.from("marker_boards").update({ latitude: position[0], longitude: position[1] }).eq("id", selected.dbId).select("id, latitude, longitude").single();
+    if (error) setToast("Could not save board map position: " + error.message);
+    else { updateTask(selected.id, { position: [Number(data.latitude), Number(data.longitude)] }); setToast(`${selected.label} map position saved. This is a manual map reference, not railway geometry verification.`); }
+    setWorkflowBusyId(""); setPlacingPicopBoard(false);
+  };
+
   const requestGps = () => {
     setGpsError("");
     if (!navigator.geolocation) {
@@ -1422,6 +1433,7 @@ export default function App() {
       </section>}
 
       {["owner", "admin", "picop", "member"].includes(membership.role) && activePage === "boards" && <aside className="side-panel" id="boards-screen">
+        <div className="board-task-map-card"><div className="board-task-map-heading"><strong>Marker-board map</strong><span>{membership.role === "member" ? "View only" : membership.role === "picop" ? "Review GPS and place unplaced boards" : "Map reference"}</span></div>{membership.role === "picop" && selected?.dbId && <button type="button" className="btn btn-secondary btn-full" onClick={() => setPlacingPicopBoard(v => !v)}>{placingPicopBoard ? "Tap map to place selected board…" : "Place selected board on map"}</button>}<div className="board-task-map"><MapContainer center={selected?.position || [52.915,-0.636]} zoom={14} minZoom={5} maxZoom={19} scrollWheelZoom={true}><TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/><MapClickHandler enabled={placingPicopBoard && membership.role === "picop"} onSelect={placeBoardOnMap}/>{tasks.map(task => <Marker key={task.id} position={task.submittedLatitude != null && task.submittedLongitude != null ? [Number(task.submittedLatitude), Number(task.submittedLongitude)] : task.position} icon={task.submittedLatitude != null ? placedBoardIcon : boardIcon} eventHandlers={{click:()=>setSelectedId(task.id)}}><Popup><strong>{task.label}</strong><br/>{task.status}{task.submittedLatitude != null && <><br/>GPS placement recorded<br/>±{task.submittedGpsAccuracy ?? "?"} m</>}</Popup></Marker>)}</MapContainer></div><small className="map-safety-note">Check submitted GPS against the approved railway reference and required tolerances. A GPS pin alone does not certify safe or correct placement.</small></div>
         <div className="panel-heading">
           <div><div className="eyebrow">{membership.role === "member" ? "MY ASSIGNED TASKS" : membership.role === "picop" ? "PICOP DASHBOARD" : "WORKSITE TASKS"}</div><h1>{membership.role === "member" ? "Marker boards & tasks" : "Marker boards & tasks"}</h1>{["picop","member"].includes(membership.role) && <label className="worksite-task-picker">Work site<select value={worksiteId || ""} onChange={e => { const row = calendarWorksites.find(item => item.id === e.target.value); if (row) selectWorksiteTasks(row); }}><option value="" disabled>Select a work site…</option>{calendarWorksites.map(row => <option key={row.id} value={row.id}>{row.name || row.reference || "Untitled work site"}</option>)}</select></label>}</div>
           <span className="count-badge">{tasks.length}</span>
