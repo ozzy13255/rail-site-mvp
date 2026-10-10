@@ -554,3 +554,7 @@ body{background:#0b1420;color:#e8eef4}
 
 .board-marker-submitted{background:#d18a21!important;border-color:#fff!important;color:#fff!important;font-size:8px!important;transform:rotate(-45deg)}
 .picop-event-actions .request-boards-button:disabled{opacity:.5;cursor:not-allowed}
+
+.worksite-granted-banner{display:flex;align-items:center;gap:9px;padding:11px 12px;margin:8px 0;border:1px solid #25845a;border-radius:8px;background:#103c2d;color:#c8f6dd}
+.worksite-granted-banner span{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#1a8b5c;color:#fff;font-weight:900}
+.worksite-granted-banner strong{font-size:12px;color:#c8f6dd}
