@@ -558,3 +558,28 @@ body{background:#0b1420;color:#e8eef4}
 .worksite-granted-banner{display:flex;align-items:center;gap:9px;padding:11px 12px;margin:8px 0;border:1px solid #25845a;border-radius:8px;background:#103c2d;color:#c8f6dd}
 .worksite-granted-banner span{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#1a8b5c;color:#fff;font-weight:900}
 .worksite-granted-banner strong{font-size:12px;color:#c8f6dd}
+
+/* Shared active possession countdown visible on every role's workspace */
+.active-possession-countdown{position:relative;overflow:hidden;margin:0 0 14px;padding:18px 20px 16px;border:1px solid #3a6b8e;border-radius:15px;background:linear-gradient(115deg,#102a42,#123d59 50%,#172d49);box-shadow:0 8px 24px #0002;color:#f4f8fc}
+.active-possession-countdown:before{content:"";position:absolute;inset:0 auto 0 0;width:5px;background:linear-gradient(180deg,#ffcc54,#1ee6a0,#4abaff,#ffcc54);background-size:100% 260%;animation:possession-edge-pulse 4s linear infinite}
+.active-possession-countdown:after{content:"";position:absolute;inset:-50% -30%;pointer-events:none;background:linear-gradient(110deg,transparent 35%,#ffffff0b 48%,#ffffff20 52%,transparent 65%);transform:translateX(-60%);animation:possession-shimmer 5s ease-in-out infinite}
+.countdown-heading{position:relative;z-index:1;display:flex;align-items:center;gap:11px}
+.countdown-heading>div{display:flex;flex-direction:column;gap:3px;min-width:0}
+.countdown-heading strong{font-size:15px;line-height:1.3;color:#fff}
+.countdown-heading small{font-size:11px;color:#c0d3e1;line-height:1.5}
+.countdown-live-dot{width:11px;height:11px;flex:0 0 11px;border-radius:50%;background:#35efa5;box-shadow:0 0 0 5px #35efa51c,0 0 15px #35efa5;animation:countdown-dot-pulse 1.8s ease-in-out infinite}
+.countdown-clock{position:relative;z-index:1;margin:12px 0 3px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:clamp(36px,6vw,66px);font-weight:950;letter-spacing:.035em;line-height:1.12;font-variant-numeric:tabular-nums;color:#65ffc1;text-shadow:0 0 16px #28ee9a38;animation:countdown-colour 7s ease-in-out infinite}
+.countdown-caption{position:relative;z-index:1;font-size:10px;font-weight:800;letter-spacing:.12em;color:#b6d4e5}
+.countdown-urgent{border-color:#db8e38;background:linear-gradient(115deg,#402715,#633718 50%,#35243c)}
+.countdown-urgent .countdown-clock{color:#ffd06b;text-shadow:0 0 18px #ffad4240;animation:countdown-urgent-pulse 1.2s ease-in-out infinite alternate}
+.countdown-urgent .countdown-live-dot{background:#ffb448;box-shadow:0 0 0 5px #ffb44822,0 0 16px #ffb448}
+.countdown-ended{border-color:#d85c63;background:linear-gradient(115deg,#451f2a,#532b36 55%,#292b48)}
+.countdown-ended .countdown-clock{color:#ff929a;animation:none}
+.countdown-ended .countdown-live-dot{background:#ff6472;box-shadow:0 0 0 5px #ff647222}
+@keyframes possession-edge-pulse{0%{background-position:0 0}100%{background-position:0 100%}}
+@keyframes possession-shimmer{0%,65%{transform:translateX(-60%)}100%{transform:translateX(60%)}}
+@keyframes countdown-dot-pulse{0%,100%{transform:scale(.9);opacity:.8}50%{transform:scale(1.1);opacity:1}}
+@keyframes countdown-colour{0%,100%{color:#65ffc1}50%{color:#8cd7ff}}
+@keyframes countdown-urgent-pulse{from{opacity:.82}to{opacity:1}}
+@media(max-width:600px){.active-possession-countdown{padding:14px 15px}.countdown-clock{font-size:clamp(32px,10vw,48px)}.countdown-heading strong{font-size:13px}}
+@media(prefers-reduced-motion:reduce){.active-possession-countdown:before,.active-possession-countdown:after,.countdown-live-dot,.countdown-clock{animation:none!important}}
