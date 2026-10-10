@@ -518,3 +518,19 @@ body{background:#0b1420;color:#e8eef4}
 .notification-center-heading{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .notification-center-heading .alert-sound-controls{margin-left:auto}
 @media(max-width:650px){.notification-center-heading{align-items:flex-start}.notification-center-heading .alert-sound-controls{width:100%;margin-left:0}.alert-sound-toggle{min-height:40px}}
+
+
+/* Operative evidence submission lock */
+.operative-submitted-state {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid #86c7a5;
+  border-radius: 12px;
+  background: #eaf8f0;
+  color: #14532d;
+  margin-top: 12px;
+}
+.operative-submitted-state strong { font-size: 15px; }
+.operative-submitted-state span, .operative-submitted-state small { font-size: 13px; line-height: 1.45; }
