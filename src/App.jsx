@@ -187,7 +187,7 @@ export default function App() {
   const [selectedCalendarDate, setSelectedCalendarDate] = useState("");
   useEffect(() => {
     const refreshCalendarDate = () => setLiveCalendarNow(new Date());
-    const timer = window.setInterval(refreshCalendarDate, 30_000);
+    const timer = window.setInterval(refreshCalendarDate, 1_000);
     return () => window.clearInterval(timer);
   }, []);
   const todayCalendarDate = toLocalDateTime(liveCalendarNow).slice(0, 10);
