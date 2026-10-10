@@ -915,7 +915,7 @@ export default function App() {
     const loadBoards = async () => {
       const { data, error } = await supabase
         .from("marker_boards")
-        .select("id, board_code, label, latitude, longitude, status, assigned_to, assigned_email, notes, elr, route_reference, mileage_miles, mileage_chains, photo_url, submitted_latitude, submitted_longitude, submitted_gps_accuracy_m, submitted_at, verified_at, verification_notes, placement_requested_at")
+        .select("id, board_code, label, latitude, longitude, status, assigned_to, assigned_email, notes, elr, route_reference, mileage_miles, mileage_chains, photo_url, submitted_latitude, submitted_longitude, submitted_gps_accuracy_m, submitted_at, verified_at, verification_notes, placement_requested_at, removal_requested_at, removal_photo_url, removal_latitude, removal_longitude, removal_gps_accuracy_m, removal_submitted_at, removal_verified_at")
         .eq("worksite_id", worksiteId)
         .order("created_at", { ascending: true });
       if (!active) return;
@@ -1077,6 +1077,40 @@ export default function App() {
     if (error) setToast("Could not save board map position: " + error.message);
     else { updateTask(selected.id, { position: [Number(data.latitude), Number(data.longitude)] }); setToast(`${selected.label} map position saved. This is a manual map reference, not railway geometry verification.`); }
     setWorkflowBusyId(""); setPlacingPicopBoard(false);
+  };
+
+  const requestBoardRemoval = async (board) => {
+    if (!board?.dbId) { setToast("Save the marker board before requesting removal."); return; }
+    setWorkflowBusyId(board.id);
+    const { error } = await supabase.rpc("picop_request_marker_board_removal", { p_marker_board_id: board.dbId });
+    if (error) setToast("Could not request marker-board removal: " + error.message);
+    else { updateTask(board.id, { status: "Removal requested", removalRequestedAt: new Date().toISOString() }); setToast("Removal request sent to the assigned board placer."); }
+    setWorkflowBusyId("");
+  };
+
+  const submitBoardRemoval = async () => {
+    if (!selected?.dbId || !selected.removalRequestedAt) { setToast("The PICOP must request removal before evidence can be submitted."); return; }
+    const file = photoFiles[selected.id + "-removal"];
+    if (!file || !gps) { setToast("Choose a removal photo and capture GPS first."); return; }
+    setWorkflowBusyId(selected.id);
+    try {
+      const path = `${worksiteId}/${selected.dbId}/removal-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      const { error: uploadError } = await supabase.storage.from("railsite-board-evidence").upload(path, file, { contentType: file.type, upsert: false });
+      if (uploadError) throw uploadError;
+      const { error } = await supabase.rpc("operative_submit_marker_board_removal", { p_marker_board_id: selected.dbId, p_photo_path: path, p_latitude: gps.position[0], p_longitude: gps.position[1], p_accuracy_m: gps.accuracy });
+      if (error) throw error;
+      updateTask(selected.id, { status: "Removal evidence submitted", removalPhotoUrl: path, removalSubmittedAt: new Date().toISOString(), removalLatitude: gps.position[0], removalLongitude: gps.position[1] });
+      setToast("Removal evidence submitted to the PICOP.");
+    } catch (error) { setToast("Could not submit removal evidence: " + (error?.message || "Please try again.")); }
+    finally { setWorkflowBusyId(""); }
+  };
+
+  const verifyBoardRemoval = async (board) => {
+    setWorkflowBusyId(board.id);
+    const { error } = await supabase.rpc("picop_verify_marker_board_removal", { p_marker_board_id: board.dbId });
+    if (error) setToast("Could not verify removal evidence: " + error.message);
+    else { updateTask(board.id, { status: "Removed" }); setToast("Marker-board removal verified."); }
+    setWorkflowBusyId("");
   };
 
   const requestGps = () => {
@@ -1498,9 +1532,12 @@ export default function App() {
             <input id="photo" className="file-input" type="file" accept="image/*" capture="environment" onChange={onPhoto}/>
             {selected.photoName && <div className="file-caption">Attached: {selected.photoName}</div>}
           </div>}
+          {selected.removalRequestedAt && membership.role === "member" && <div className="operative-confirm-panel"><strong>Board removal requested</strong><p>Remove this board and submit a photo plus fresh GPS evidence.</p><label className="upload-zone" htmlFor="removal-photo"><strong>Choose removal photo</strong><small>Use your phone camera or select an image</small></label><input id="removal-photo" className="file-input" type="file" accept="image/*" capture="environment" onChange={event => { const file=event.target.files?.[0]; if(file) setPhotoFiles(prev=>({...prev,[selected.id+"-removal"]:file})); }}/><button className="btn btn-secondary btn-full" type="button" onClick={requestGps}>◎ Capture current GPS</button><button className="btn btn-primary btn-full" type="button" onClick={submitBoardRemoval} disabled={workflowBusyId===selected.id || !photoFiles[selected.id+"-removal"] || !gps}>Submit removal evidence</button></div>}
+          {selected.removalPhotoUrl && <div className="board-evidence-card"><strong>Submitted removal evidence</strong><button className="btn btn-secondary btn-full" type="button" onClick={async()=>{const {data,error}=await supabase.storage.from("railsite-board-evidence").createSignedUrl(selected.removalPhotoUrl,3600);if(error)setToast("Could not open removal photo: "+error.message);else window.open(data.signedUrl,"_blank","noopener,noreferrer");}}>View removal photo</button><small>Submitted {selected.removalSubmittedAt ? new Date(selected.removalSubmittedAt).toLocaleString("en-GB") : "time unavailable"} · GPS {selected.removalLatitude != null ? `${Number(selected.removalLatitude).toFixed(6)}, ${Number(selected.removalLongitude).toFixed(6)}` : "unavailable"}</small>{membership.role === "picop" && selected.status === "Removal evidence submitted" && <button className="btn btn-primary btn-full" type="button" onClick={()=>verifyBoardRemoval(selected)} disabled={workflowBusyId===selected.id}>Verify board removed</button>}</div>}
+          {membership.role === "picop" && ["Verified", "Removal requested"].includes(selected.status) && <button className="btn btn-danger btn-full" type="button" onClick={()=>requestBoardRemoval(selected)} disabled={workflowBusyId===selected.id || selected.status !== "Verified"}>Request marker-board removal</button>}
           {selected.photoUrl && <div className="board-evidence-card"><strong>Submitted placement evidence</strong>{photoPreviews[selected.id] ? <img src={photoPreviews[selected.id]} alt="Marker board placement evidence"/> : <button type="button" className="btn btn-secondary btn-full" onClick={async () => { const { data, error } = await supabase.storage.from("railsite-board-evidence").createSignedUrl(selected.photoUrl, 3600); if (error) setToast("Could not open evidence photo: " + error.message); else window.open(data.signedUrl, "_blank", "noopener,noreferrer"); }}>View submitted photo</button>}<small>Submitted {selected.submittedAt ? new Date(selected.submittedAt).toLocaleString("en-GB") : "time unavailable"} · GPS ±{selected.submittedGpsAccuracy ?? "?"} m</small><small>{selected.submittedLatitude != null ? `GPS: ${Number(selected.submittedLatitude).toFixed(6)}, ${Number(selected.submittedLongitude).toFixed(6)}` : "GPS evidence unavailable"}</small></div>}
           {membership.role === "member" && <div className="operative-confirm-panel"><strong>Placement confirmation</strong><p>{selected.placementRequestedAt ? "The PICOP has requested this board. Photograph it in place, acquire GPS, then confirm." : "Waiting for the PICOP to request board placement. You cannot confirm placement before that request."}</p>{selected.verificationNotes && <div className="inline-error">PICOP feedback: {selected.verificationNotes}</div>}{selected.placementRequestedAt && ["Awaiting PICOP verification", "Verified"].includes(selected.status) ? <div className="operative-submitted-state" role="status"><strong>✓ Evidence submitted</strong><span>{selected.status === "Verified" ? "The PICOP has verified this board." : "Photo and GPS evidence has been sent. Waiting for PICOP review."}</span>{selected.submittedAt && <small>Submitted {new Date(selected.submittedAt).toLocaleString("en-GB")}</small>}</div> : selected.placementRequestedAt && <button className="btn btn-primary btn-full" onClick={confirmBoardPlaced} disabled={workflowBusyId === selected.id || !photoFiles[selected.id] || !gps}>{workflowBusyId === selected.id ? "Submitting evidence…" : "Confirm board placed with photo + GPS"}</button>}</div>}
-          {membership.role === "picop" && selected.status === "Awaiting PICOP verification" && <div className="operative-confirm-panel"><strong>PICOP verification</strong><label className="verification-notes-label">Notes for the operative<textarea rows="2" value={selected.verificationNotes || ""} onChange={e => updateTask(selected.id, { verificationNotes: e.target.value })} placeholder="Required if returning for correction"/></label><div className="button-row"><button className="btn btn-danger" onClick={() => verifySelectedBoard(false)} disabled={workflowBusyId === selected.id || !(selected.verificationNotes || "").trim()}>Return for correction</button><button className="btn btn-primary" onClick={() => verifySelectedBoard(true)} disabled={workflowBusyId === selected.id}>Verify evidence</button></div></div>}
+          {membership.role === "picop" && ["Awaiting PICOP verification", "Removal evidence submitted"].includes(selected.status) && <div className="operative-confirm-panel"><strong>{selected.status === "Removal evidence submitted" ? "Removal evidence verification" : "PICOP verification"}</strong><label className="verification-notes-label">Notes for the operative<textarea rows="2" value={selected.verificationNotes || ""} onChange={e => updateTask(selected.id, { verificationNotes: e.target.value })} placeholder="Required if returning for correction"/></label><div className="button-row"><button className="btn btn-danger" onClick={() => verifySelectedBoard(false)} disabled={workflowBusyId === selected.id || !(selected.verificationNotes || "").trim()}>Return for correction</button><button className="btn btn-primary" onClick={() => selected.status === "Removal evidence submitted" ? verifyBoardRemoval(selected) : verifySelectedBoard(true)} disabled={workflowBusyId === selected.id}>Verify evidence</button></div></div>}
           {["owner", "admin", "planner"].includes(membership.role) && <button className="btn btn-danger btn-full delete-board-button" onClick={deleteSelectedBoard} disabled={!selected.id}>Delete selected marker board</button>}
           <p className="safety-note"><strong>Safety note:</strong> This prototype does not confirm railway protection, safe access, or correct placement. Use approved railway procedures and independent checks.</p>
           </>}
