@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { MapContainer, TileLayer, Marker, Popup, Polygon, LayersControl, useMap } from "react-leaflet";
 import L from "leaflet";
@@ -224,6 +224,10 @@ export default function App() {
   const [assignedPicopEmail, setAssignedPicopEmail] = useState("");
   const [picopResponse, setPicopResponse] = useState("pending");
   const [notifications, setNotifications] = useState([]);
+  const [alertSoundEnabled, setAlertSoundEnabled] = useState(() => { try { return window.localStorage.getItem("railsite-alert-sound") === "on"; } catch { return false; } });
+  const [notificationPermission, setNotificationPermission] = useState(() => typeof Notification === "undefined" ? "unsupported" : Notification.permission);
+  const knownNotificationIds = useRef(null);
+  const audioContextRef = useRef(null);
   const [workflowBusyId, setWorkflowBusyId] = useState("");
   const [overviewList, setOverviewList] = useState("");
   const [picopAssignmentOpen, setPicopAssignmentOpen] = useState(false);
@@ -452,6 +456,53 @@ export default function App() {
     return () => { active = false; };
   }, [membership?.company_id]);
 
+  const playAlertSound = async () => {
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      const context = audioContextRef.current || new AudioContextClass();
+      audioContextRef.current = context;
+      if (context.state === "suspended") await context.resume();
+      // A clear, urgent two-tone chime, repeated once. Device volume controls loudness.
+      const now = context.currentTime;
+      [[880, 0], [1174.66, 0.22], [880, 0.72], [1174.66, 0.94]].forEach(([frequency, offset]) => {
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(frequency, now + offset);
+        gain.gain.setValueAtTime(0.0001, now + offset);
+        gain.gain.exponentialRampToValueAtTime(0.72, now + offset + 0.025);
+        gain.gain.setValueAtTime(0.72, now + offset + 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.2);
+        oscillator.connect(gain);
+        gain.connect(context.destination);
+        oscillator.start(now + offset);
+        oscillator.stop(now + offset + 0.22);
+      });
+    } catch (error) {
+      console.warn("RailSite alert sound could not play", error);
+    }
+  };
+
+  const enableAlertNotifications = async () => {
+    try {
+      window.localStorage.setItem("railsite-alert-sound", "on");
+    } catch {}
+    setAlertSoundEnabled(true);
+    await playAlertSound();
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      const permission = await Notification.requestPermission();
+      setNotificationPermission(permission);
+    } else if (typeof Notification !== "undefined") {
+      setNotificationPermission(Notification.permission);
+    }
+  };
+
+  const disableAlertSound = () => {
+    try { window.localStorage.setItem("railsite-alert-sound", "off"); } catch {}
+    setAlertSoundEnabled(false);
+  };
+
   useEffect(() => {
     if (!supabase || !membership?.company_id || !session?.user?.email) return;
     let active = true;
@@ -460,12 +511,27 @@ export default function App() {
         .select("id, kind, message, created_at, worksite_id, marker_board_id")
         .eq("company_id", membership.company_id).ilike("recipient_email", session.user.email)
         .is("read_at", null).order("created_at", { ascending: false }).limit(8);
-      if (active && !error) setNotifications(data || []);
+      if (!active || error) return;
+      const fresh = data || [];
+      const previousIds = knownNotificationIds.current;
+      if (previousIds !== null) {
+        const newItems = fresh.filter(item => !previousIds.has(item.id));
+        if (newItems.length && alertSoundEnabled) {
+          void playAlertSound();
+        }
+        if (newItems.length && typeof Notification !== "undefined" && Notification.permission === "granted") {
+          newItems.slice(0, 2).forEach(item => {
+            try { new Notification("RailSite alert", { body: item.message, tag: String(item.id), renotify: false }); } catch {}
+          });
+        }
+      }
+      knownNotificationIds.current = new Set(fresh.map(item => item.id));
+      setNotifications(fresh);
     };
     void loadNotifications();
     const timer = window.setInterval(loadNotifications, 15000);
     return () => { active = false; window.clearInterval(timer); };
-  }, [membership?.company_id, session?.user?.email]);
+  }, [membership?.company_id, session?.user?.email, alertSoundEnabled]);
 
   const markNotificationRead = async (notificationId) => {
     const { error } = await supabase.from("railsite_notifications").update({ read_at: new Date().toISOString() }).eq("id", notificationId);
@@ -1135,7 +1201,7 @@ export default function App() {
         <div className="sidebar-spacer"></div><div className="sidebar-footer"><span className="online-dot"/><span className="sidebar-label">Company workspace</span></div>
       </aside>
       <main className="workspace">
-      {notifications.length > 0 && <section className="notification-center" aria-label="Notifications"><div className="notification-center-heading"><strong>Notifications</strong><span>{notifications.length} unread</span></div>{notifications.map(note => <div className="notification-row" key={note.id}><span className="notification-mark">!</span><p>{note.message}<small>{new Date(note.created_at).toLocaleString("en-GB")}</small></p><button type="button" onClick={() => markNotificationRead(note.id)} aria-label="Mark notification as read">×</button></div>)}</section>}
+      <section className="notification-center" aria-label="Notifications"><div className="notification-center-heading"><strong>Notifications</strong><span>{notifications.length} unread</span><div className="alert-sound-controls">{alertSoundEnabled ? <button type="button" className="alert-sound-toggle enabled" onClick={disableAlertSound}>🔔 Sound on</button> : <button type="button" className="alert-sound-toggle" onClick={enableAlertNotifications}>Enable alert sound</button>}{notificationPermission === "granted" && <span className="alert-permission-status">Device notifications on</span>}</div></div>{notifications.map(note => <div className="notification-row" key={note.id}><span className="notification-mark">!</span><p>{note.message}<small>{new Date(note.created_at).toLocaleString("en-GB")}</small></p><button type="button" onClick={() => markNotificationRead(note.id)} aria-label="Mark notification as read">×</button></div>)}</section>
       {(activePage === "calendar" || (membership.role === "planner" && activePage === "overview") || (membership.role === "picop" && activePage === "overview")) && <>
       {["owner", "admin", "planner"].includes(membership.role) && null}
       <section className="planning-calendar" id="calendar-screen">
