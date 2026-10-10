@@ -589,3 +589,14 @@ body{background:#0b1420;color:#e8eef4}
 .board-map-legend-dot{display:inline-block;width:10px;height:10px;border:2px solid #fff;border-radius:3px;background:#d18a21}
 .board-map-legend-dot.gps{background:#168653;border-radius:50%}
 .board-map-legend-dot.pending{background:#d18a21;border-radius:50%}
+
+/* Active worksite shortcut: animated to match the live countdown */
+.active-worksite-menu{position:relative!important;overflow:hidden!important;border:1px solid #278e68!important;background:linear-gradient(110deg,#103b31,#155642,#173b54)!important;box-shadow:0 0 0 1px #39df9a20,0 0 18px #20d68c17!important;animation:active-worksite-menu-glow 2.8s ease-in-out infinite}
+.active-worksite-menu:before{content:"";position:absolute;inset:0 auto 0 0;width:4px;background:linear-gradient(180deg,#41ffb3,#4db9ff,#41ffb3);background-size:100% 200%;animation:active-worksite-menu-edge 2s linear infinite}
+.active-worksite-menu .sidebar-label{font-weight:900!important;color:#d6ffeb!important}
+.active-worksite-menu-icon{color:#62ffb8!important;text-shadow:0 0 10px #62ffb8a0}
+.active-worksite-menu-pulse{width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:#45ffae;box-shadow:0 0 0 4px #45ffae25,0 0 12px #45ffae;animation:active-worksite-dot 1.3s ease-in-out infinite}
+@keyframes active-worksite-menu-glow{0%,100%{box-shadow:0 0 0 1px #39df9a20,0 0 12px #20d68c10}50%{box-shadow:0 0 0 1px #39df9a65,0 0 22px #20d68c35}}
+@keyframes active-worksite-menu-edge{0%{background-position:0 0}100%{background-position:0 100%}}
+@keyframes active-worksite-dot{0%,100%{transform:scale(.85);opacity:.75}50%{transform:scale(1.15);opacity:1}}
+@media(prefers-reduced-motion:reduce){.active-worksite-menu,.active-worksite-menu:before,.active-worksite-menu-pulse{animation:none!important}}
